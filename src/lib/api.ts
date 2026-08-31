@@ -8,6 +8,35 @@ function getAuthHeader(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+// Safe response parser that avoids "Unexpected end of JSON input" errors
+async function parseJsonSafely<T>(res: Response, defaultError = 'Request failed'): Promise<T> {
+  let text = '';
+  try {
+    text = await res.text();
+  } catch {
+    if (!res.ok) throw new Error(`${defaultError} (HTTP ${res.status})`);
+    return {} as T;
+  }
+
+  if (!text || text.trim() === '') {
+    if (!res.ok) throw new Error(`${defaultError} (HTTP ${res.status})`);
+    return {} as T;
+  }
+
+  try {
+    const data = JSON.parse(text);
+    if (!res.ok) {
+      throw new Error(data?.error || data?.message || `${defaultError} (HTTP ${res.status})`);
+    }
+    return data as T;
+  } catch (err: any) {
+    if (!res.ok) {
+      throw new Error(err.message?.includes('HTTP') ? err.message : `${defaultError}: HTTP ${res.status}`);
+    }
+    return text as unknown as T;
+  }
+}
+
 // Seamless Dual Firebase + Backend Bridge
 // Attempts direct Firebase Firestore/Storage first; falls back gracefully to Express REST API
 export const api = {
@@ -24,8 +53,7 @@ export const api = {
       if (params?.sort) query.set('sort', params.sort);
 
       const res = await fetch(`${API_BASE}/products?${query.toString()}`);
-      if (!res.ok) throw new Error('Failed to fetch products');
-      return res.json();
+      return await parseJsonSafely<Product[]>(res, 'Failed to fetch products');
     }
   },
 
@@ -34,8 +62,7 @@ export const api = {
       return await firebaseApi.getProductBySlug(slug);
     } catch {
       const res = await fetch(`${API_BASE}/products/${encodeURIComponent(slug)}`);
-      if (!res.ok) throw new Error('Product not found');
-      return res.json();
+      return await parseJsonSafely<Product>(res, 'Product not found');
     }
   },
 
@@ -44,8 +71,7 @@ export const api = {
       return await firebaseApi.getCategories();
     } catch {
       const res = await fetch(`${API_BASE}/categories`);
-      if (!res.ok) throw new Error('Failed to fetch categories');
-      return res.json();
+      return await parseJsonSafely<Category[]>(res, 'Failed to fetch categories');
     }
   },
 
@@ -55,15 +81,14 @@ export const api = {
     } catch {
       const query = productId ? `?productId=${encodeURIComponent(productId)}` : '';
       const res = await fetch(`${API_BASE}/reviews${query}`);
-      if (!res.ok) throw new Error('Failed to fetch reviews');
-      return res.json();
+      return await parseJsonSafely<Review[]>(res, 'Failed to fetch reviews');
     }
   },
 
   async submitReview(data: Partial<Review>): Promise<Review> {
     try {
       const saved = await firebaseApi.submitReview(data);
-      // Also notify backend
+      // Also notify backend in background
       fetch(`${API_BASE}/reviews`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -76,11 +101,7 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to submit review');
-      }
-      return res.json();
+      return await parseJsonSafely<Review>(res, 'Failed to submit review');
     }
   },
 
@@ -89,8 +110,7 @@ export const api = {
       return await firebaseApi.getSettings();
     } catch {
       const res = await fetch(`${API_BASE}/settings`);
-      if (!res.ok) throw new Error('Failed to fetch site settings');
-      return res.json();
+      return await parseJsonSafely<SiteSettings>(res, 'Failed to fetch site settings');
     }
   },
 
@@ -110,11 +130,7 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to place order');
-      }
-      return res.json();
+      return await parseJsonSafely<{ success: boolean; order: Order; message: string }>(res, 'Failed to place order');
     }
   },
 
@@ -123,8 +139,7 @@ export const api = {
       return await firebaseApi.getOrder(id);
     } catch {
       const res = await fetch(`${API_BASE}/orders/${encodeURIComponent(id)}`);
-      if (!res.ok) throw new Error('Order not found');
-      return res.json();
+      return await parseJsonSafely<Order>(res, 'Order not found');
     }
   },
 
@@ -135,19 +150,14 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Invalid credentials');
-    }
-    return res.json();
+    return await parseJsonSafely<{ success: boolean; token: string; admin: AdminUser }>(res, 'Invalid admin credentials');
   },
 
   async adminGetMe(): Promise<AdminUser> {
     const res = await fetch(`${API_BASE}/admin/me`, {
       headers: { ...getAuthHeader() },
     });
-    if (!res.ok) throw new Error('Session invalid');
-    return res.json();
+    return await parseJsonSafely<AdminUser>(res, 'Session invalid');
   },
 
   async adminGetStats(): Promise<AdminStats> {
@@ -157,8 +167,7 @@ export const api = {
       const res = await fetch(`${API_BASE}/admin/stats`, {
         headers: { ...getAuthHeader() },
       });
-      if (!res.ok) throw new Error('Failed to fetch admin stats');
-      return res.json();
+      return await parseJsonSafely<AdminStats>(res, 'Failed to fetch admin stats');
     }
   },
 
@@ -169,8 +178,7 @@ export const api = {
       const res = await fetch(`${API_BASE}/admin/products`, {
         headers: { ...getAuthHeader() },
       });
-      if (!res.ok) throw new Error('Failed to fetch admin products');
-      return res.json();
+      return await parseJsonSafely<Product[]>(res, 'Failed to fetch admin products');
     }
   },
 
@@ -192,11 +200,7 @@ export const api = {
         },
         body: JSON.stringify(data),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to create product');
-      }
-      return res.json();
+      return await parseJsonSafely<Product>(res, 'Failed to create product');
     }
   },
 
@@ -218,11 +222,7 @@ export const api = {
         },
         body: JSON.stringify(data),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to update product');
-      }
-      return res.json();
+      return await parseJsonSafely<Product>(res, 'Failed to update product');
     }
   },
 
@@ -239,7 +239,7 @@ export const api = {
         method: 'DELETE',
         headers: { ...getAuthHeader() },
       });
-      if (!res.ok) throw new Error('Failed to delete product');
+      await parseJsonSafely(res, 'Failed to delete product');
       return true;
     }
   },
@@ -251,8 +251,7 @@ export const api = {
       const res = await fetch(`${API_BASE}/admin/categories`, {
         headers: { ...getAuthHeader() },
       });
-      if (!res.ok) throw new Error('Failed to fetch categories');
-      return res.json();
+      return await parseJsonSafely<Category[]>(res, 'Failed to fetch categories');
     }
   },
 
@@ -274,8 +273,7 @@ export const api = {
         },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error('Failed to create category');
-      return res.json();
+      return await parseJsonSafely<Category>(res, 'Failed to create category');
     }
   },
 
@@ -297,8 +295,7 @@ export const api = {
         },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error('Failed to update category');
-      return res.json();
+      return await parseJsonSafely<Category>(res, 'Failed to update category');
     }
   },
 
@@ -315,7 +312,7 @@ export const api = {
         method: 'DELETE',
         headers: { ...getAuthHeader() },
       });
-      if (!res.ok) throw new Error('Failed to delete category');
+      await parseJsonSafely(res, 'Failed to delete category');
       return true;
     }
   },
@@ -327,8 +324,7 @@ export const api = {
       const res = await fetch(`${API_BASE}/admin/orders`, {
         headers: { ...getAuthHeader() },
       });
-      if (!res.ok) throw new Error('Failed to fetch orders');
-      return res.json();
+      return await parseJsonSafely<Order[]>(res, 'Failed to fetch orders');
     }
   },
 
@@ -350,8 +346,7 @@ export const api = {
         },
         body: JSON.stringify({ orderStatus, paymentStatus }),
       });
-      if (!res.ok) throw new Error('Failed to update order status');
-      return res.json();
+      return await parseJsonSafely<Order>(res, 'Failed to update order status');
     }
   },
 
@@ -373,8 +368,7 @@ export const api = {
         },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error('Failed to create review');
-      return res.json();
+      return await parseJsonSafely<Review>(res, 'Failed to create review');
     }
   },
 
@@ -396,8 +390,7 @@ export const api = {
         },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error('Failed to update review');
-      return res.json();
+      return await parseJsonSafely<Review>(res, 'Failed to update review');
     }
   },
 
@@ -414,7 +407,7 @@ export const api = {
         method: 'DELETE',
         headers: { ...getAuthHeader() },
       });
-      if (!res.ok) throw new Error('Failed to delete review');
+      await parseJsonSafely(res, 'Failed to delete review');
       return true;
     }
   },
@@ -437,8 +430,7 @@ export const api = {
         },
         body: JSON.stringify(settings),
       });
-      if (!res.ok) throw new Error('Failed to update settings');
-      return res.json();
+      return await parseJsonSafely<SiteSettings>(res, 'Failed to update settings');
     }
   },
 
@@ -451,10 +443,7 @@ export const api = {
       },
       body: JSON.stringify({ currentPassword, newPassword }),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Failed to update password');
-    }
+    await parseJsonSafely(res, 'Failed to update password');
   },
 
   async adminUploadImage(file: File): Promise<{ url: string; filename: string }> {
@@ -473,11 +462,7 @@ export const api = {
         },
         body: formData,
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Image upload failed');
-      }
-      return res.json();
+      return await parseJsonSafely<{ url: string; filename: string }>(res, 'Image upload failed');
     }
   },
 };
