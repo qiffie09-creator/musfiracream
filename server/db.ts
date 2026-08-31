@@ -556,8 +556,8 @@ function getInitialData(): DatabaseSchema {
     settings: {
       brandName: 'MUSFIRA',
       brandTagline: 'Special Skincare Beauty Cream',
-      logoUrl: '/src/assets/images/musfira_logo_1788205114087.jpg',
-      faviconUrl: '/src/assets/images/musfira_logo_1788205114087.jpg',
+      logoUrl: '/musfira_logo.jpg',
+      faviconUrl: '/musfira_logo.jpg',
       bismillahText: 'بِسْمِ اللَّهِ',
       tickerText: 'Free shipping all over Pakistan',
       phone: '+92 300 1234567',
@@ -621,6 +621,10 @@ export class Database {
   // Products
   public getProducts(): DBProduct[] {
     return this.data.products;
+  }
+
+  public getProductById(id: string): DBProduct | undefined {
+    return this.data.products.find((p) => p.id === id);
   }
 
   public getProductBySlug(slug: string): DBProduct | undefined {
@@ -750,17 +754,65 @@ export class Database {
     return this.data.reviews;
   }
 
-  public createReview(reviewData: Omit<DBReview, 'id' | 'date'>): DBReview {
+  public getReviewById(id: string): DBReview | undefined {
+    return this.data.reviews.find((r) => r.id === id);
+  }
+
+  public createReview(reviewData: Partial<DBReview> & { productId: string; reviewerName: string; rating: number; comment: string }): DBReview {
     const d = new Date();
-    const formattedDate = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
+    const formattedDate = reviewData.date || `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
+    const initials = reviewData.initials || reviewData.reviewerName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'M';
+    
+    // Determine product name if not provided
+    let prodName = reviewData.productName;
+    if (!prodName) {
+      const prod = this.getProductById(reviewData.productId);
+      if (prod) prodName = prod.name;
+    }
+
     const newReview: DBReview = {
-      ...reviewData,
       id: `rev-${Date.now()}`,
+      productId: reviewData.productId,
+      productName: prodName || 'Musfira Special Cream',
+      reviewerName: reviewData.reviewerName,
+      initials,
+      rating: Number(reviewData.rating) || 5,
       date: formattedDate,
+      comment: reviewData.comment,
+      beforeAfterImage: reviewData.beforeAfterImage || undefined,
+      verified: reviewData.verified !== undefined ? reviewData.verified : true,
     };
+
     this.data.reviews.unshift(newReview);
     this.save();
     return newReview;
+  }
+
+  public updateReview(id: string, updates: Partial<DBReview>): DBReview | null {
+    const review = this.getReviewById(id);
+    if (!review) return null;
+
+    if (updates.reviewerName !== undefined) {
+      review.reviewerName = updates.reviewerName;
+      if (!updates.initials) {
+        review.initials = updates.reviewerName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'M';
+      }
+    }
+    if (updates.initials !== undefined) review.initials = updates.initials;
+    if (updates.rating !== undefined) review.rating = Number(updates.rating);
+    if (updates.comment !== undefined) review.comment = updates.comment;
+    if (updates.date !== undefined) review.date = updates.date;
+    if (updates.beforeAfterImage !== undefined) review.beforeAfterImage = updates.beforeAfterImage || undefined;
+    if (updates.verified !== undefined) review.verified = Boolean(updates.verified);
+    if (updates.productId !== undefined) {
+      review.productId = updates.productId;
+      const prod = this.getProductById(updates.productId);
+      if (prod) review.productName = prod.name;
+    }
+    if (updates.productName !== undefined) review.productName = updates.productName;
+
+    this.save();
+    return review;
   }
 
   public deleteReview(id: string): boolean {

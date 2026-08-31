@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import apiRouter from './server/routes/api';
+import { syncFirebaseWithInitialData } from './server/seedFirebase';
 
 const isProduction = process.env.NODE_ENV === 'production';
 const PORT = 3000;
@@ -12,6 +13,11 @@ async function startServer() {
   // Parse JSON and form bodies
   app.use(express.json({ limit: '15mb' }));
   app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+
+  // Run initial Firebase Firestore sync in background
+  syncFirebaseWithInitialData().catch((err) => {
+    console.warn('Firebase initial sync warning:', err);
+  });
 
   // Static uploads directory
   const uploadsPath = path.join(process.cwd(), 'public', 'uploads');

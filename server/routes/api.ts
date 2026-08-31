@@ -408,6 +408,41 @@ router.put('/admin/orders/:id/status', requireAdminAuth, (req: Request, res: Res
 });
 
 // Reviews admin endpoints
+router.post('/admin/reviews', requireAdminAuth, (req: Request, res: Response) => {
+  try {
+    const { productId, reviewerName, rating, comment, date, beforeAfterImage, verified, initials, productName } = req.body;
+    if (!reviewerName || !comment) {
+      return res.status(400).json({ error: 'Reviewer name and review text are required' });
+    }
+
+    const newReview = db.createReview({
+      productId: productId || 'msf-001',
+      reviewerName,
+      initials,
+      rating: Number(rating) || 5,
+      comment,
+      date,
+      beforeAfterImage: beforeAfterImage || undefined,
+      verified: verified !== undefined ? Boolean(verified) : true,
+      productName,
+    });
+
+    res.status(201).json(newReview);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to create review', details: err.message });
+  }
+});
+
+router.put('/admin/reviews/:id', requireAdminAuth, (req: Request, res: Response) => {
+  try {
+    const updated = db.updateReview(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Review not found' });
+    res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to update review', details: err.message });
+  }
+});
+
 router.delete('/admin/reviews/:id', requireAdminAuth, (req: Request, res: Response) => {
   try {
     const success = db.deleteReview(req.params.id);

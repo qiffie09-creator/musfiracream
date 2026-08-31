@@ -1,5 +1,5 @@
 // Generated product and brand assets
-import musfiraLogo from './musfira_logo_1788205114087.jpg';
+import musfiraLogo from './musfira_official_logo.jpg';
 import musfiraCreamHero from './musfira_cream_hero_1788205132383.jpg';
 import musfiraSkinPolish from './musfira_skin_polish_1788205147328.jpg';
 import musfiraAcneSerum from './musfira_acne_serum_1788205164885.jpg';
