@@ -14,7 +14,7 @@ interface HomePageProps {
 }
 
 export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentView }) => {
-  const { products, openQuickOrder, addToCart, showToast } = useStore();
+  const { products, openQuickOrder, addToCart, showToast, settings } = useStore();
 
   // Find primary hero product (Musfira Special Cream)
   const heroProduct = products.find((p) => p.slug === 'musfira-special-cream') || products[0];
@@ -45,9 +45,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentV
     return () => clearInterval(interval);
   }, []);
 
-  const heroImages = heroProduct?.images && heroProduct.images.length > 0
-    ? heroProduct.images
-    : [BrandAssets.creamHero, BrandAssets.skinPolish, BrandAssets.faceWash];
+  const heroImages = (settings?.landingImages && settings.landingImages.length > 0)
+    ? settings.landingImages
+    : (heroProduct?.images && heroProduct.images.length > 0
+        ? heroProduct.images
+        : [BrandAssets.creamHero, BrandAssets.skinPolish, BrandAssets.faceWash]);
 
   const handlePrevImage = () => {
     setCurrentImageIndex((prev) => (prev === 0 ? heroImages.length - 1 : prev - 1));

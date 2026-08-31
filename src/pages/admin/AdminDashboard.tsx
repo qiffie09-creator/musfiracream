@@ -5,7 +5,7 @@ import {
   ShoppingBag,
   FolderTree,
   Star,
-  Image,
+  Image as ImageIcon,
   Settings,
   ShieldAlert,
   LogOut,
@@ -32,7 +32,12 @@ import {
   Camera,
   Calendar,
   Sparkles,
-  ShieldCheck
+  ShieldCheck,
+  Percent,
+  Tag,
+  Sliders,
+  Layers,
+  ArrowUpRight,
 } from 'lucide-react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { useStore } from '../../context/StoreContext';
@@ -48,7 +53,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
   const { admin, logout } = useAdminAuth();
   const { showToast, refreshStoreData } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'categories' | 'reviews' | 'media' | 'settings' | 'security'>('overview');
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'products' | 'landing' | 'orders' | 'categories' | 'reviews' | 'media' | 'settings' | 'security'
+  >('overview');
 
   // Stats state
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -59,6 +66,58 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
   const [productSearch, setProductSearch] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductModal, setShowProductModal] = useState(false);
+  const [isUploadingProductImage, setIsUploadingProductImage] = useState(false);
+  const [isSavingProduct, setIsSavingProduct] = useState(false);
+
+  // Quick Price / Discount Edit Modal state
+  const [quickPriceProduct, setQuickPriceProduct] = useState<Product | null>(null);
+  const [quickPrice, setQuickPrice] = useState<number>(0);
+  const [quickSalePrice, setQuickSalePrice] = useState<number>(0);
+  const [isSavingQuickPrice, setIsSavingQuickPrice] = useState(false);
+
+  // Product Form Data
+  const [productForm, setProductForm] = useState<{
+    id?: string;
+    name: string;
+    tagline: string;
+    price: number;
+    salePrice: number;
+    discountPercentage: number;
+    category: string;
+    stock: number;
+    stockStatus: 'in_stock' | 'low_stock' | 'sold_out';
+    description: string;
+    shortDescription: string;
+    images: string[];
+    bundles: ProductBundle[];
+    isFeatured: boolean;
+    isBestSeller: boolean;
+    badges: string[];
+    urduBenefits: string[];
+    urduUsage: string[];
+  }>({
+    name: '',
+    tagline: '',
+    price: 1499,
+    salePrice: 1999,
+    discountPercentage: 25,
+    category: 'Beauty Creams',
+    stock: 50,
+    stockStatus: 'in_stock',
+    description: '',
+    shortDescription: '',
+    images: [BrandAssets.creamHero],
+    bundles: [
+      { id: 'b-1', name: '1 Pack', packCount: 1, price: 1499, isDefault: false },
+      { id: 'b-2', name: '2 Packs', packCount: 2, price: 2499, originalPrice: 2998, savingsText: 'Save Rs. 500', badge: 'Most Popular', isDefault: true },
+      { id: 'b-3', name: '3 Packs', packCount: 3, price: 3499, originalPrice: 4497, savingsText: 'Save Rs. 1,000', badge: 'Best Value', isDefault: false },
+    ],
+    isFeatured: true,
+    isBestSeller: true,
+    badges: ['Best Seller', '100% Original'],
+    urduBenefits: [],
+    urduUsage: [],
+  });
 
   // Orders state
   const [orders, setOrders] = useState<Order[]>([]);
@@ -90,6 +149,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
     beforeAfterImage: '',
     verified: true,
   });
+
+  // Landing Page 3 Main Pictures State
+  const [landingPictures, setLandingPictures] = useState<string[]>([
+    BrandAssets.creamHero,
+    BrandAssets.skinPolish,
+    BrandAssets.faceWash,
+  ]);
+  const [isUploadingLandingPic, setIsUploadingLandingPic] = useState<number | null>(null);
+  const [isSavingLandingPics, setIsSavingLandingPics] = useState(false);
+
+  // Landing Offer quick price state
+  const [heroOfferPrice, setHeroOfferPrice] = useState<number>(1499);
+  const [heroOfferSalePrice, setHeroOfferSalePrice] = useState<number>(1999);
+  const [heroBundles, setHeroBundles] = useState<ProductBundle[]>([
+    { id: 'b-1', name: '1 Pack', packCount: 1, price: 1499, isDefault: false },
+    { id: 'b-2', name: '2 Packs', packCount: 2, price: 2499, originalPrice: 2998, savingsText: 'Save Rs. 500', badge: 'Most Popular', isDefault: true },
+    { id: 'b-3', name: '3 Packs', packCount: 3, price: 3499, originalPrice: 4497, savingsText: 'Save Rs. 1,000', badge: 'Best Value', isDefault: false },
+  ]);
 
   // Settings state
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
@@ -124,6 +201,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
       setCategories(cat);
       setReviews(rev);
       setSiteSettings(sett);
+
+      // Initialize Landing 3 Pictures
+      if (sett?.landingImages && sett.landingImages.length > 0) {
+        setLandingPictures(sett.landingImages);
+      } else {
+        const hero = pr.find((p) => p.slug === 'musfira-special-cream') || pr[0];
+        if (hero?.images && hero.images.length > 0) {
+          setLandingPictures([
+            hero.images[0] || BrandAssets.creamHero,
+            hero.images[1] || BrandAssets.skinPolish,
+            hero.images[2] || BrandAssets.faceWash,
+          ]);
+        }
+      }
+
+      // Initialize Hero product pricing info for Landing tab
+      const heroProd = pr.find((p) => p.slug === 'musfira-special-cream') || pr[0];
+      if (heroProd) {
+        setHeroOfferPrice(heroProd.price || 1499);
+        setHeroOfferSalePrice(heroProd.salePrice || 1999);
+        if (heroProd.bundles && heroProd.bundles.length > 0) {
+          setHeroBundles(heroProd.bundles);
+        }
+      }
     } catch (err) {
       console.error('Failed to load admin dashboard data:', err);
     } finally {
@@ -135,22 +236,197 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
     loadAllData();
   }, []);
 
-  // Handlers for Products
-  const handleSaveProduct = async (productData: Partial<Product>) => {
+  // Open Product Modal
+  const handleOpenProductModal = (prod: Product | null) => {
+    if (prod) {
+      setSelectedProduct(prod);
+      const origPrice = prod.salePrice || Math.round(prod.price * 1.33);
+      const discPct =
+        prod.discountPercentage ||
+        (origPrice > prod.price ? Math.round(((origPrice - prod.price) / origPrice) * 100) : 0);
+
+      setProductForm({
+        id: prod.id,
+        name: prod.name || '',
+        tagline: prod.tagline || '',
+        price: prod.price || 1499,
+        salePrice: prod.salePrice || 1999,
+        discountPercentage: discPct,
+        category: prod.category || 'Beauty Creams',
+        stock: prod.stock ?? 50,
+        stockStatus: prod.stockStatus || 'in_stock',
+        description: prod.description || '',
+        shortDescription: prod.shortDescription || '',
+        images: prod.images && prod.images.length > 0 ? [...prod.images] : [BrandAssets.creamHero],
+        bundles: prod.bundles && prod.bundles.length > 0 ? [...prod.bundles] : [
+          { id: 'b-1', name: '1 Pack', packCount: 1, price: prod.price, isDefault: false },
+          { id: 'b-2', name: '2 Packs', packCount: 2, price: Math.round(prod.price * 1.66), originalPrice: prod.price * 2, savingsText: `Save Rs. ${Math.round(prod.price * 0.34)}`, badge: 'Most Popular', isDefault: true },
+          { id: 'b-3', name: '3 Packs', packCount: 3, price: Math.round(prod.price * 2.33), originalPrice: prod.price * 3, savingsText: `Save Rs. ${Math.round(prod.price * 0.67)}`, badge: 'Best Value', isDefault: false },
+        ],
+        isFeatured: prod.isFeatured ?? true,
+        isBestSeller: prod.isBestSeller ?? false,
+        badges: prod.badges || ['Best Seller', '100% Original'],
+        urduBenefits: prod.urduBenefits || [],
+        urduUsage: prod.urduUsage || [],
+      });
+    } else {
+      setSelectedProduct(null);
+      setProductForm({
+        name: '',
+        tagline: '100% Original Musfira Formula',
+        price: 1499,
+        salePrice: 1999,
+        discountPercentage: 25,
+        category: categories[0]?.name || 'Beauty Creams',
+        stock: 50,
+        stockStatus: 'in_stock',
+        description: '',
+        shortDescription: '',
+        images: [BrandAssets.creamHero],
+        bundles: [
+          { id: 'b-1', name: '1 Pack', packCount: 1, price: 1499, isDefault: false },
+          { id: 'b-2', name: '2 Packs', packCount: 2, price: 2499, originalPrice: 2998, savingsText: 'Save Rs. 500', badge: 'Most Popular', isDefault: true },
+          { id: 'b-3', name: '3 Packs', packCount: 3, price: 3499, originalPrice: 4497, savingsText: 'Save Rs. 1,000', badge: 'Best Value', isDefault: false },
+        ],
+        isFeatured: true,
+        isBestSeller: false,
+        badges: ['100% Original'],
+        urduBenefits: [],
+        urduUsage: [],
+      });
+    }
+    setShowProductModal(true);
+  };
+
+  // Product Image File Upload Handler
+  const handleProductImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
     try {
-      if (selectedProduct?.id) {
-        await api.adminUpdateProduct(selectedProduct.id, productData);
-        showToast(`Product "${productData.name}" updated successfully!`);
-      } else {
-        await api.adminCreateProduct(productData);
-        showToast(`Product "${productData.name}" created successfully!`);
+      setIsUploadingProductImage(true);
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const res = await api.adminUploadImage(file);
+        setProductForm((prev) => ({
+          ...prev,
+          images: [...prev.images.filter((img) => img !== BrandAssets.creamHero || prev.images.length > 1), res.url],
+        }));
       }
+      showToast('Product image(s) uploaded successfully!');
+    } catch (err: any) {
+      alert(err.message || 'Failed to upload product image file');
+    } finally {
+      setIsUploadingProductImage(false);
+      e.target.value = '';
+    }
+  };
+
+  // Remove an image from product form
+  const handleRemoveProductImage = (indexToRemove: number) => {
+    setProductForm((prev) => {
+      const updated = prev.images.filter((_, idx) => idx !== indexToRemove);
+      return {
+        ...prev,
+        images: updated.length > 0 ? updated : [BrandAssets.creamHero],
+      };
+    });
+  };
+
+  // Set primary image
+  const handleSetPrimaryProductImage = (index: number) => {
+    setProductForm((prev) => {
+      const img = prev.images[index];
+      const rest = prev.images.filter((_, idx) => idx !== index);
+      return {
+        ...prev,
+        images: [img, ...rest],
+      };
+    });
+    showToast('Cover photo updated!');
+  };
+
+  // Handle Save Product (Full)
+  const handleSaveProductForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!productForm.name.trim()) {
+      alert('Product name is required');
+      return;
+    }
+
+    try {
+      setIsSavingProduct(true);
+      const stockStatus = Number(productForm.stock) > 0 ? 'in_stock' : 'sold_out';
+
+      const payload: Partial<Product> = {
+        name: productForm.name.trim(),
+        tagline: productForm.tagline.trim(),
+        price: Number(productForm.price),
+        salePrice: productForm.salePrice ? Number(productForm.salePrice) : undefined,
+        discountPercentage: productForm.discountPercentage ? Number(productForm.discountPercentage) : undefined,
+        category: productForm.category,
+        stock: Number(productForm.stock),
+        stockStatus: stockStatus as any,
+        description: productForm.description,
+        shortDescription: productForm.shortDescription,
+        images: productForm.images.length > 0 ? productForm.images : [BrandAssets.creamHero],
+        bundles: productForm.bundles,
+        isFeatured: productForm.isFeatured,
+        isBestSeller: productForm.isBestSeller,
+        badges: productForm.badges,
+      };
+
+      if (selectedProduct?.id) {
+        await api.adminUpdateProduct(selectedProduct.id, payload);
+        showToast(`Product "${productForm.name}" updated successfully!`);
+      } else {
+        await api.adminCreateProduct(payload);
+        showToast(`New product "${productForm.name}" created!`);
+      }
+
       setShowProductModal(false);
       setSelectedProduct(null);
-      loadAllData();
+      await loadAllData();
       refreshStoreData();
     } catch (err: any) {
       alert(err.message || 'Failed to save product');
+    } finally {
+      setIsSavingProduct(false);
+    }
+  };
+
+  // Quick Price / Discount Edit
+  const handleOpenQuickPriceModal = (prod: Product) => {
+    setQuickPriceProduct(prod);
+    setQuickPrice(prod.price);
+    setQuickSalePrice(prod.salePrice || Math.round(prod.price * 1.33));
+  };
+
+  const handleSaveQuickPrice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickPriceProduct) return;
+
+    try {
+      setIsSavingQuickPrice(true);
+      const discPct =
+        quickSalePrice > quickPrice
+          ? Math.round(((quickSalePrice - quickPrice) / quickSalePrice) * 100)
+          : 0;
+
+      await api.adminUpdateProduct(quickPriceProduct.id, {
+        price: Number(quickPrice),
+        salePrice: Number(quickSalePrice),
+        discountPercentage: discPct,
+      });
+
+      showToast(`Price updated for "${quickPriceProduct.name}"!`);
+      setQuickPriceProduct(null);
+      await loadAllData();
+      refreshStoreData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to update price');
+    } finally {
+      setIsSavingQuickPrice(false);
     }
   };
 
@@ -167,6 +443,63 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
     }
   };
 
+  // Handlers for Landing 3 Pictures
+  const handleLandingPicUpload = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingLandingPic(index);
+      const res = await api.adminUploadImage(file);
+      const updated = [...landingPictures];
+      updated[index] = res.url;
+      setLandingPictures(updated);
+      showToast(`Landing picture #${index + 1} uploaded!`);
+    } catch (err: any) {
+      alert(err.message || `Failed to upload picture #${index + 1}`);
+    } finally {
+      setIsUploadingLandingPic(null);
+      e.target.value = '';
+    }
+  };
+
+  const handleSaveLandingManagement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setIsSavingLandingPics(true);
+
+      // 1. Update Site Settings with landingImages
+      await api.adminUpdateSettings({
+        landingImages: landingPictures,
+      });
+
+      // 2. Update Hero product images and bundle pricing
+      const heroProd = products.find((p) => p.slug === 'musfira-special-cream') || products[0];
+      if (heroProd) {
+        const discPct =
+          heroOfferSalePrice > heroOfferPrice
+            ? Math.round(((heroOfferSalePrice - heroOfferPrice) / heroOfferSalePrice) * 100)
+            : 0;
+
+        await api.adminUpdateProduct(heroProd.id, {
+          images: landingPictures,
+          price: Number(heroOfferPrice),
+          salePrice: Number(heroOfferSalePrice),
+          discountPercentage: discPct,
+          bundles: heroBundles,
+        });
+      }
+
+      showToast('Landing page 3 pictures and hero pricing saved successfully!');
+      await loadAllData();
+      refreshStoreData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to save landing page settings');
+    } finally {
+      setIsSavingLandingPics(false);
+    }
+  };
+
   // Handlers for Orders
   const handleUpdateOrderStatus = async (orderId: string, status: string, payStatus?: string) => {
     try {
@@ -174,7 +507,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
       showToast(`Order #${orderId} status updated to ${status}`);
       loadAllData();
       if (selectedOrder && selectedOrder.id === orderId) {
-        setSelectedOrder((prev) => prev ? { ...prev, orderStatus: status as any, paymentStatus: payStatus as any || prev.paymentStatus } : null);
+        setSelectedOrder((prev) =>
+          prev
+            ? {
+                ...prev,
+                orderStatus: status as any,
+                paymentStatus: (payStatus as any) || prev.paymentStatus,
+              }
+            : null
+        );
       }
     } catch (err: any) {
       alert(err.message || 'Failed to update order');
@@ -215,7 +556,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
   // Handlers for Reviews
   const handleOpenAddReview = () => {
     const today = new Date();
-    const formattedDate = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}/${today.getFullYear()}`;
+    const formattedDate = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(
+      today.getDate()
+    ).padStart(2, '0')}/${today.getFullYear()}`;
     setEditingReview(null);
     setReviewFormData({
       productId: products[0]?.id || 'msf-001',
@@ -357,7 +700,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
   });
 
   const filteredProducts = products.filter(
-    (p) => p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.category.toLowerCase().includes(productSearch.toLowerCase())
+    (p) =>
+      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+      p.category.toLowerCase().includes(productSearch.toLowerCase())
   );
 
   const filteredReviews = reviews.filter((r) => {
@@ -399,7 +744,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
           <button
             onClick={() => setActiveTab('overview')}
             className={`w-full flex items-center space-x-2.5 px-3 py-2.5 rounded-xl transition-colors ${
-              activeTab === 'overview' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+              activeTab === 'overview'
+                ? 'bg-blue-600 text-white font-bold'
+                : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
             }`}
           >
             <LayoutDashboard className="w-4 h-4" />
@@ -409,19 +756,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
           <button
             onClick={() => setActiveTab('products')}
             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors ${
-              activeTab === 'products' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+              activeTab === 'products'
+                ? 'bg-blue-600 text-white font-bold'
+                : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
             }`}
           >
             <div className="flex items-center space-x-2.5">
               <Package className="w-4 h-4" />
-              <span>Products ({products.length})</span>
+              <span>Products & Prices ({products.length})</span>
             </div>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('landing')}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors ${
+              activeTab === 'landing'
+                ? 'bg-amber-600 text-white font-bold'
+                : 'text-amber-300 hover:bg-slate-900 hover:text-amber-200'
+            }`}
+          >
+            <div className="flex items-center space-x-2.5">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span>Landing Pictures (3 Main)</span>
+            </div>
+            <span className="bg-amber-400/20 text-amber-300 text-[10px] px-1.5 py-0.5 rounded font-bold">
+              Hero
+            </span>
           </button>
 
           <button
             onClick={() => setActiveTab('orders')}
             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors ${
-              activeTab === 'orders' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+              activeTab === 'orders'
+                ? 'bg-blue-600 text-white font-bold'
+                : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
             }`}
           >
             <div className="flex items-center space-x-2.5">
@@ -438,7 +806,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
           <button
             onClick={() => setActiveTab('categories')}
             className={`w-full flex items-center space-x-2.5 px-3 py-2.5 rounded-xl transition-colors ${
-              activeTab === 'categories' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+              activeTab === 'categories'
+                ? 'bg-blue-600 text-white font-bold'
+                : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
             }`}
           >
             <FolderTree className="w-4 h-4" />
@@ -448,27 +818,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
           <button
             onClick={() => setActiveTab('reviews')}
             className={`w-full flex items-center space-x-2.5 px-3 py-2.5 rounded-xl transition-colors ${
-              activeTab === 'reviews' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+              activeTab === 'reviews'
+                ? 'bg-blue-600 text-white font-bold'
+                : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
             }`}
           >
-            <Star className="w-4 h-4" />
+            <Star className="w-4 h-4 text-amber-400" />
             <span>Reviews ({reviews.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('media')}
             className={`w-full flex items-center space-x-2.5 px-3 py-2.5 rounded-xl transition-colors ${
-              activeTab === 'media' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+              activeTab === 'media'
+                ? 'bg-blue-600 text-white font-bold'
+                : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
             }`}
           >
-            <Image className="w-4 h-4" />
+            <ImageIcon className="w-4 h-4" />
             <span>Media Library</span>
           </button>
 
           <button
             onClick={() => setActiveTab('settings')}
             className={`w-full flex items-center space-x-2.5 px-3 py-2.5 rounded-xl transition-colors ${
-              activeTab === 'settings' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+              activeTab === 'settings'
+                ? 'bg-blue-600 text-white font-bold'
+                : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
             }`}
           >
             <Settings className="w-4 h-4" />
@@ -478,7 +854,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
           <button
             onClick={() => setActiveTab('security')}
             className={`w-full flex items-center space-x-2.5 px-3 py-2.5 rounded-xl transition-colors ${
-              activeTab === 'security' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+              activeTab === 'security'
+                ? 'bg-blue-600 text-white font-bold'
+                : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
             }`}
           >
             <ShieldAlert className="w-4 h-4" />
@@ -512,7 +890,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-slate-800 mb-8 gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold font-serif-brand text-white capitalize">
-              {activeTab === 'overview' ? 'Dashboard & Metrics' : `${activeTab}`}
+              {activeTab === 'overview'
+                ? 'Dashboard & Metrics'
+                : activeTab === 'landing'
+                ? 'Landing Page 3 Main Pictures & Offers'
+                : activeTab === 'products'
+                ? 'Product Catalog & Pricing Management'
+                : `${activeTab}`}
             </h1>
             <p className="text-xs text-slate-400 mt-1">
               Store Account: <span className="text-blue-400">{admin?.email}</span>
@@ -531,10 +915,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
 
             {activeTab === 'products' && (
               <button
-                onClick={() => {
-                  setSelectedProduct(null);
-                  setShowProductModal(true);
-                }}
+                onClick={() => handleOpenProductModal(null)}
                 className="py-2 px-4 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg flex items-center space-x-1 shadow"
               >
                 <Plus className="w-4 h-4" />
@@ -588,6 +969,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
               </div>
             </div>
 
+            {/* Quick Hero Banner & Pricing Shortcut */}
+            <div className="bg-gradient-to-r from-amber-950/40 via-slate-800 to-slate-800 p-6 rounded-2xl border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center space-x-2">
+                  <Sparkles className="w-5 h-5 text-amber-400" />
+                  <h3 className="text-base font-bold text-white font-serif-brand">
+                    Landing Page Main 3 Pictures & Offer Control
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-300">
+                  Easily upload new high-resolution hero pictures and edit active prices, crossed-out prices, and bundle discounts directly.
+                </p>
+              </div>
+              <button
+                onClick={() => setActiveTab('landing')}
+                className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs rounded-xl shadow shrink-0 flex items-center space-x-1.5"
+              >
+                <span>Edit 3 Main Pictures & Prices</span>
+                <ArrowUpRight className="w-4 h-4" />
+              </button>
+            </div>
+
             {/* Recent Orders in Overview */}
             <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-5 space-y-4">
               <div className="flex items-center justify-between">
@@ -619,7 +1022,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
                         <td className="p-3 font-medium text-white">{ord.customerName}</td>
                         <td className="p-3">{ord.phone}</td>
                         <td className="p-3">{ord.city}</td>
-                        <td className="p-3 font-bold text-white font-serif-brand">Rs.{ord.total.toLocaleString()}</td>
+                        <td className="p-3 font-bold text-white font-serif-brand">
+                          Rs.{ord.total.toLocaleString()}
+                        </td>
                         <td className="p-3">
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${
@@ -642,96 +1047,393 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
           </div>
         )}
 
-        {/* TAB 2: PRODUCTS */}
+        {/* TAB 2: PRODUCTS (CATALOG & PRICING) */}
         {activeTab === 'products' && (
-          <div className="space-y-4">
-            {/* Search Filter */}
-            <div className="flex items-center space-x-3">
-              <div className="relative flex-1">
+          <div className="space-y-5">
+            {/* Search Filter & Add Bar */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="relative flex-1 w-full">
                 <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
                 <input
                   type="text"
                   value={productSearch}
                   onChange={(e) => setProductSearch(e.target.value)}
                   placeholder="Search products by title or category..."
-                  className="w-full pl-9 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full pl-9 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
+
+              <button
+                onClick={() => handleOpenProductModal(null)}
+                className="w-full sm:w-auto py-2.5 px-4 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl flex items-center justify-center space-x-1.5 shadow shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add New Product</span>
+              </button>
             </div>
 
-            {/* Products Table */}
-            <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-x-auto">
+            {/* Products Table with Quick Price & Discount Edit */}
+            <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-x-auto shadow-sm">
               <table className="w-full text-left text-xs text-slate-300">
                 <thead className="bg-slate-900 text-slate-400 uppercase text-[10px]">
                   <tr>
-                    <th className="p-3">Product</th>
-                    <th className="p-3">Category</th>
-                    <th className="p-3">Price</th>
-                    <th className="p-3">Stock</th>
-                    <th className="p-3">Status</th>
-                    <th className="p-3 text-right">Actions</th>
+                    <th className="p-3.5">Product & Photo</th>
+                    <th className="p-3.5">Category</th>
+                    <th className="p-3.5">Selling Price & Discount</th>
+                    <th className="p-3.5">Stock</th>
+                    <th className="p-3.5">Status</th>
+                    <th className="p-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700">
-                  {filteredProducts.map((prod) => (
-                    <tr key={prod.id} className="hover:bg-slate-750">
-                      <td className="p-3 flex items-center space-x-3">
-                        <img
-                          src={prod.images[0] || BrandAssets.creamHero}
-                          alt=""
-                          className="w-10 h-10 object-cover rounded-lg bg-slate-900 border border-slate-700"
-                          referrerPolicy="no-referrer"
-                        />
-                        <div>
-                          <p className="font-bold text-white font-serif-brand">{prod.name}</p>
-                          <span className="text-[10px] text-slate-500">SKU: {prod.sku}</span>
-                        </div>
-                      </td>
-                      <td className="p-3">{prod.category}</td>
-                      <td className="p-3 font-bold text-white font-serif-brand">
-                        Rs.{prod.price.toLocaleString()} PKR
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            prod.stockStatus === 'sold_out' || prod.stock <= 0
-                              ? 'bg-red-900/50 text-red-300'
-                              : 'bg-emerald-900/50 text-emerald-300'
-                          }`}
-                        >
-                          {prod.stockStatus === 'sold_out' || prod.stock <= 0 ? 'Sold Out' : `${prod.stock} in stock`}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        {prod.active !== false ? (
-                          <span className="text-emerald-400 font-semibold">Active</span>
-                        ) : (
-                          <span className="text-slate-500 font-semibold">Inactive</span>
-                        )}
-                      </td>
-                      <td className="p-3 text-right space-x-2">
-                        <button
-                          onClick={() => {
-                            setSelectedProduct(prod);
-                            setShowProductModal(true);
-                          }}
-                          className="p-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 rounded-lg"
-                          title="Edit Product"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteProduct(prod.id, prod.name)}
-                          className="p-1.5 bg-red-600/20 hover:bg-red-600/40 text-red-300 rounded-lg"
-                          title="Delete Product"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredProducts.map((prod) => {
+                    const originalPrice = prod.salePrice || 0;
+                    const discount =
+                      originalPrice > prod.price
+                        ? Math.round(((originalPrice - prod.price) / originalPrice) * 100)
+                        : 0;
+
+                    return (
+                      <tr key={prod.id} className="hover:bg-slate-750 transition-colors">
+                        <td className="p-3.5 flex items-center space-x-3">
+                          <img
+                            src={prod.images[0] || BrandAssets.creamHero}
+                            alt=""
+                            className="w-12 h-12 object-cover rounded-xl bg-slate-900 border border-slate-700 shrink-0"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div>
+                            <p className="font-bold text-white font-serif-brand text-sm">{prod.name}</p>
+                            <span className="text-[11px] text-slate-400 block">SKU: {prod.sku}</span>
+                            {prod.images.length > 1 && (
+                              <span className="text-[10px] text-blue-400">
+                                {prod.images.length} images
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-3.5">
+                          <span className="bg-slate-900 text-slate-300 px-2.5 py-1 rounded-lg text-[11px] border border-slate-700">
+                            {prod.category}
+                          </span>
+                        </td>
+                        <td className="p-3.5">
+                          <div className="flex items-baseline space-x-2">
+                            <span className="font-bold text-emerald-400 font-serif-brand text-sm">
+                              Rs.{prod.price.toLocaleString()} PKR
+                            </span>
+                            {originalPrice > prod.price && (
+                              <span className="text-slate-400 line-through text-[11px]">
+                                Rs.{originalPrice.toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                          {discount > 0 && (
+                            <span className="inline-block mt-0.5 bg-red-950 text-red-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-800">
+                              {discount}% OFF (Save Rs.{(originalPrice - prod.price).toLocaleString()})
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3.5">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                              prod.stockStatus === 'sold_out' || prod.stock <= 0
+                                ? 'bg-red-900/50 text-red-300'
+                                : 'bg-emerald-900/50 text-emerald-300'
+                            }`}
+                          >
+                            {prod.stockStatus === 'sold_out' || prod.stock <= 0
+                              ? 'Sold Out'
+                              : `${prod.stock} in stock`}
+                          </span>
+                        </td>
+                        <td className="p-3.5">
+                          {prod.active !== false ? (
+                            <span className="text-emerald-400 font-semibold flex items-center space-x-1">
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              <span>Active</span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-500 font-semibold">Inactive</span>
+                          )}
+                        </td>
+                        <td className="p-3.5 text-right space-x-2">
+                          <button
+                            onClick={() => handleOpenQuickPriceModal(prod)}
+                            className="p-2 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 rounded-lg inline-flex items-center space-x-1"
+                            title="Quick Edit Price & Discount"
+                          >
+                            <DollarSign className="w-3.5 h-3.5" />
+                            <span className="text-[11px] font-bold">Price</span>
+                          </button>
+                          <button
+                            onClick={() => handleOpenProductModal(prod)}
+                            className="p-2 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 rounded-lg inline-flex items-center space-x-1"
+                            title="Edit Full Product & Photos"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                            <span className="text-[11px]">Edit</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProduct(prod.id, prod.name)}
+                            className="p-2 bg-red-600/20 hover:bg-red-600/40 text-red-300 rounded-lg inline-flex items-center"
+                            title="Delete Product"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: LANDING 3 PICTURES & HERO OFFER EDITING */}
+        {activeTab === 'landing' && (
+          <div className="space-y-8">
+            <div className="bg-slate-800 p-6 sm:p-8 rounded-2xl border border-slate-700 space-y-6">
+              <div className="border-b border-slate-700 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-bold font-serif-brand text-amber-300 flex items-center space-x-2">
+                    <Sparkles className="w-5 h-5 text-amber-400" />
+                    <span>Landing Page 3 Main Pictures (Hero Carousel)</span>
+                  </h2>
+                  <p className="text-xs text-slate-300 mt-1">
+                    Upload and customize the 3 primary packshot pictures shown to every visitor on the homepage hero section.
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="px-3 py-1 bg-amber-400/20 text-amber-300 text-xs font-bold rounded-full border border-amber-500/40">
+                    Live On Homepage
+                  </span>
+                </div>
+              </div>
+
+              {/* 3 Main Pictures Visual Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[
+                  {
+                    title: '1. Primary Hero Packshot (Box + Jar)',
+                    desc: 'Main product box packshot with "One Sold Every Minute*" badge.',
+                    preset: BrandAssets.creamHero,
+                  },
+                  {
+                    title: '2. Polish & Formulation Texture',
+                    desc: 'Shows natural rich creamy formulation texture and glow results.',
+                    preset: BrandAssets.skinPolish,
+                  },
+                  {
+                    title: '3. Routine & Usage Result Proof',
+                    desc: 'Face wash routine and verified glow skin results proof.',
+                    preset: BrandAssets.faceWash,
+                  },
+                ].map((picInfo, idx) => {
+                  const currentImg = landingPictures[idx] || picInfo.preset;
+                  const isUploadingThis = isUploadingLandingPic === idx;
+
+                  return (
+                    <div
+                      key={idx}
+                      className="bg-slate-900/80 rounded-2xl p-5 border border-slate-700 space-y-4 flex flex-col justify-between hover:border-amber-500/50 transition-colors"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold text-amber-300">{picInfo.title}</span>
+                          <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono">
+                            Slot {idx + 1}/3
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mb-3">{picInfo.desc}</p>
+
+                        {/* Image Preview Box */}
+                        <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-700 group">
+                          <img
+                            src={currentImg}
+                            alt={`Landing Picture ${idx + 1}`}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-1 rounded-full">
+                            Image #{idx + 1}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Upload Button */}
+                      <div className="space-y-2 pt-2 border-t border-slate-800">
+                        <label className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl cursor-pointer flex items-center justify-center space-x-2 text-xs font-bold shadow transition-colors">
+                          <Upload className="w-4 h-4" />
+                          <span>{isUploadingThis ? 'Uploading Photo...' : 'Upload File (Replace)'}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            disabled={isUploadingThis}
+                            onChange={(e) => handleLandingPicUpload(idx, e)}
+                            className="hidden"
+                          />
+                        </label>
+
+                        {/* Direct URL input */}
+                        <input
+                          type="text"
+                          value={landingPictures[idx] || ''}
+                          onChange={(e) => {
+                            const updated = [...landingPictures];
+                            updated[idx] = e.target.value;
+                            setLandingPictures(updated);
+                          }}
+                          placeholder="Or paste image URL"
+                          className="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-[11px] font-mono text-slate-300"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Landing Hero Product Pricing & Discount Offer Section */}
+              <div className="bg-slate-900/90 p-6 rounded-2xl border border-slate-700 space-y-5">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div>
+                    <h3 className="text-base font-bold text-white font-serif-brand flex items-center space-x-2">
+                      <Tag className="w-4 h-4 text-emerald-400" />
+                      <span>Homepage Hero Offer & Bundle Pricing Control</span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Directly change the active selling prices, crossed-out original prices, and package deals shown in the landing hero section.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Active 1-Pack Selling Price (PKR) <span className="text-emerald-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-bold">Rs.</span>
+                      <input
+                        type="number"
+                        value={heroOfferPrice}
+                        onChange={(e) => setHeroOfferPrice(Number(e.target.value))}
+                        className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Crossed-out Original Price / MRP (PKR)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-bold">Rs.</span>
+                      <input
+                        type="number"
+                        value={heroOfferSalePrice}
+                        onChange={(e) => setHeroOfferSalePrice(Number(e.target.value))}
+                        className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bundle Packages (1 Pack, 2 Packs, 3 Packs) */}
+                <div className="space-y-3 pt-2">
+                  <label className="block text-xs font-bold text-slate-300">
+                    Bundle Package Discounts (1 Pack, 2 Packs, 3 Packs):
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {heroBundles.map((b, bIdx) => (
+                      <div
+                        key={b.id || bIdx}
+                        className="p-3.5 bg-slate-800 rounded-xl border border-slate-700 space-y-2 text-xs"
+                      >
+                        <div className="flex items-center justify-between font-bold text-white">
+                          <span>{b.name}</span>
+                          <span className="text-emerald-400 font-serif-brand">Rs.{b.price.toLocaleString()}</span>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] text-slate-400 block mb-0.5">Bundle Price (PKR):</label>
+                          <input
+                            type="number"
+                            value={b.price}
+                            onChange={(e) => {
+                              const updated = [...heroBundles];
+                              updated[bIdx].price = Number(e.target.value);
+                              setHeroBundles(updated);
+                            }}
+                            className="w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded text-white font-bold"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] text-slate-400 block mb-0.5">Crossed Price (Optional):</label>
+                          <input
+                            type="number"
+                            value={b.originalPrice || ''}
+                            onChange={(e) => {
+                              const updated = [...heroBundles];
+                              updated[bIdx].originalPrice = Number(e.target.value) || undefined;
+                              setHeroBundles(updated);
+                            }}
+                            placeholder="e.g. 2998"
+                            className="w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded text-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] text-slate-400 block mb-0.5">Badge (e.g. Most Popular):</label>
+                          <input
+                            type="text"
+                            value={b.badge || ''}
+                            onChange={(e) => {
+                              const updated = [...heroBundles];
+                              updated[bIdx].badge = e.target.value || undefined;
+                              setHeroBundles(updated);
+                            }}
+                            placeholder="Badge text"
+                            className="w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded text-amber-300"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] text-slate-400 block mb-0.5">Savings Text:</label>
+                          <input
+                            type="text"
+                            value={b.savingsText || ''}
+                            onChange={(e) => {
+                              const updated = [...heroBundles];
+                              updated[bIdx].savingsText = e.target.value || undefined;
+                              setHeroBundles(updated);
+                            }}
+                            placeholder="e.g. Save Rs. 500"
+                            className="w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded text-emerald-300"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Save All Landing Settings Button */}
+              <div className="pt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleSaveLandingManagement}
+                  disabled={isSavingLandingPics}
+                  className="px-8 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm rounded-xl shadow-lg flex items-center space-x-2 disabled:opacity-50"
+                >
+                  <Save className="w-5 h-5 text-slate-950" />
+                  <span>
+                    {isSavingLandingPics ? 'Saving Changes...' : 'Save Landing Pictures & Pricing'}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -746,7 +1448,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
                   key={st}
                   onClick={() => setOrderFilter(st)}
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold capitalize whitespace-nowrap ${
-                    orderFilter === st ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                    orderFilter === st
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
                   }`}
                 >
                   {st} ({st === 'all' ? orders.length : orders.filter((o) => o.orderStatus === st).length})
@@ -760,28 +1464,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
                 <thead className="bg-slate-900 text-slate-400 uppercase text-[10px]">
                   <tr>
                     <th className="p-3">Order ID</th>
+                    <th className="p-3">Date</th>
                     <th className="p-3">Customer</th>
-                    <th className="p-3">Address & City</th>
-                    <th className="p-3">Items</th>
-                    <th className="p-3">Total (COD)</th>
+                    <th className="p-3">Phone & City</th>
+                    <th className="p-3">Amount</th>
                     <th className="p-3">Status</th>
-                    <th className="p-3 text-right">Inspect</th>
+                    <th className="p-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700">
                   {filteredOrders.map((ord) => (
                     <tr key={ord.id} className="hover:bg-slate-750">
-                      <td className="p-3 font-mono font-bold text-blue-400">{ord.id}</td>
-                      <td className="p-3">
-                        <p className="font-bold text-white">{ord.customerName}</p>
-                        <p className="text-[11px] text-slate-400">{ord.phone}</p>
+                      <td className="p-3 font-mono font-bold text-blue-400">#{ord.id}</td>
+                      <td className="p-3 text-slate-400">
+                        {new Date(ord.createdAt).toLocaleDateString()}
                       </td>
+                      <td className="p-3 font-medium text-white">{ord.customerName}</td>
                       <td className="p-3">
-                        <p className="line-clamp-1">{ord.address}</p>
-                        <span className="text-slate-400 font-semibold">{ord.city}</span>
-                      </td>
-                      <td className="p-3">
-                        {ord.items.map((i) => `${i.name} (x${i.quantity})`).join(', ')}
+                        <div className="text-white">{ord.phone}</div>
+                        <div className="text-[10px] text-slate-400">{ord.city}</div>
                       </td>
                       <td className="p-3 font-bold text-white font-serif-brand">
                         Rs.{ord.total.toLocaleString()} PKR
@@ -790,7 +1491,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
                         <select
                           value={ord.orderStatus}
                           onChange={(e) => handleUpdateOrderStatus(ord.id, e.target.value)}
-                          className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none capitalize"
+                          className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white capitalize focus:outline-none focus:border-blue-500"
                         >
                           <option value="pending">Pending</option>
                           <option value="confirmed">Confirmed</option>
@@ -803,7 +1504,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
                       <td className="p-3 text-right">
                         <button
                           onClick={() => setSelectedOrder(ord)}
-                          className="p-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg"
+                          className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded text-slate-200"
+                          title="View Details"
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
@@ -818,12 +1520,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
 
         {/* TAB 4: CATEGORIES */}
         {activeTab === 'categories' && (
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-            <div className="md:col-span-5 bg-slate-800 p-6 rounded-2xl border border-slate-700 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Create Category Form */}
+            <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 space-y-4">
               <h3 className="text-base font-bold text-white font-serif-brand">Add New Category</h3>
               <form onSubmit={handleAddCategory} className="space-y-3 text-xs">
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Category Name</label>
+                  <label className="block font-semibold mb-1 text-slate-300">Category Name</label>
                   <input
                     type="text"
                     required
@@ -834,12 +1537,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Description (Optional)</label>
+                  <label className="block font-semibold mb-1 text-slate-300">Description</label>
                   <textarea
                     rows={2}
                     value={newCatDesc}
                     onChange={(e) => setNewCatDesc(e.target.value)}
-                    placeholder="Category details..."
+                    placeholder="Short description..."
                     className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white"
                   />
                 </div>
@@ -852,20 +1555,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
               </form>
             </div>
 
-            <div className="md:col-span-7 bg-slate-800 p-6 rounded-2xl border border-slate-700 space-y-3">
+            {/* Categories List */}
+            <div className="md:col-span-2 bg-slate-800 p-5 rounded-2xl border border-slate-700 space-y-3">
               <h3 className="text-base font-bold text-white font-serif-brand">Existing Categories</h3>
               <div className="divide-y divide-slate-700">
                 {categories.map((cat) => (
                   <div key={cat.id} className="py-3 flex items-center justify-between">
                     <div>
-                      <p className="font-bold text-white">{cat.name}</p>
-                      <p className="text-xs text-slate-400">{cat.slug}</p>
+                      <p className="font-bold text-white text-xs">{cat.name}</p>
+                      <p className="text-[11px] text-slate-400">{cat.description || 'No description'}</p>
                     </div>
                     <button
                       onClick={() => handleDeleteCategory(cat.id)}
-                      className="p-1.5 text-red-400 hover:bg-red-900/30 rounded-lg"
+                      className="p-1 text-red-400 hover:text-red-300"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 ))}
@@ -877,218 +1581,84 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
         {/* TAB 5: REVIEWS */}
         {activeTab === 'reviews' && (
           <div className="space-y-6">
-            {/* Header & Actions */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-800 p-6 rounded-2xl border border-slate-700">
-              <div>
-                <h3 className="text-lg font-bold text-white font-serif-brand flex items-center space-x-2">
-                  <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
-                  <span>Customer Reviews & Testimonials</span>
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  Upload, modify, delete, and curate real customer reviews with star ratings and before/after verification photos.
-                </p>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center space-x-2">
+                <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+                <h3 className="text-lg font-bold text-white font-serif-brand">Customer Feedback & Reviews</h3>
               </div>
               <button
+                type="button"
                 onClick={handleOpenAddReview}
-                className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-xl text-xs flex items-center justify-center space-x-2 shadow-lg shadow-amber-900/20 transition-all shrink-0"
+                className="py-2 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs rounded-xl flex items-center space-x-1.5 shadow"
               >
-                <Plus className="w-4 h-4 text-slate-950 stroke-[3]" />
-                <span>Upload New Review</span>
+                <Plus className="w-4 h-4" />
+                <span>Upload New Customer Review</span>
               </button>
             </div>
 
-            {/* Quick Metrics Bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-slate-800/80 p-4 rounded-xl border border-slate-700/70">
-                <span className="text-[11px] text-slate-400 font-medium">Total Reviews</span>
-                <p className="text-2xl font-bold text-white mt-1">{reviews.length}</p>
-              </div>
-              <div className="bg-slate-800/80 p-4 rounded-xl border border-slate-700/70">
-                <span className="text-[11px] text-slate-400 font-medium">Average Rating</span>
-                <div className="flex items-center space-x-1.5 mt-1">
-                  <p className="text-2xl font-bold text-amber-400">
-                    {reviews.length > 0 ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : '5.0'}
-                  </p>
+            {/* Review Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredReviews.map((rev) => (
+                <div
+                  key={rev.id}
+                  className="bg-slate-800 p-5 rounded-2xl border border-slate-700 space-y-3 relative"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-9 h-9 rounded-full bg-blue-900 text-blue-200 font-bold flex items-center justify-center text-xs">
+                        {rev.initials}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-white text-xs">{rev.reviewerName}</h4>
+                        <span className="text-[10px] text-slate-400">{rev.date}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <button
+                        onClick={() => handleOpenEditReview(rev)}
+                        className="p-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 rounded"
+                        title="Edit Review"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteReview(rev.id)}
+                        className="p-1.5 bg-red-600/20 hover:bg-red-600/40 text-red-300 rounded"
+                        title="Delete Review"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="flex text-amber-400">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star
+                        key={s}
+                        className={`w-3.5 h-3.5 ${
+                          s <= rev.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-600'
+                        }`}
+                      />
                     ))}
                   </div>
-                </div>
-              </div>
-              <div className="bg-slate-800/80 p-4 rounded-xl border border-slate-700/70">
-                <span className="text-[11px] text-slate-400 font-medium">Verified Buyers</span>
-                <p className="text-2xl font-bold text-emerald-400 mt-1">
-                  {reviews.filter((r) => r.verified).length}
-                </p>
-              </div>
-              <div className="bg-slate-800/80 p-4 rounded-xl border border-slate-700/70">
-                <span className="text-[11px] text-slate-400 font-medium">With Photo Proof</span>
-                <p className="text-2xl font-bold text-blue-400 mt-1">
-                  {reviews.filter((r) => Boolean(r.beforeAfterImage)).length}
-                </p>
-              </div>
-            </div>
 
-            {/* Filter & Search Bar */}
-            <div className="flex flex-col sm:flex-row items-center gap-3 bg-slate-800/50 p-4 rounded-xl border border-slate-700/60">
-              <div className="relative flex-1 w-full">
-                <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-                <input
-                  type="text"
-                  value={reviewSearch}
-                  onChange={(e) => setReviewSearch(e.target.value)}
-                  placeholder="Search by customer name, review feedback text, product..."
-                  className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-500"
-                />
-              </div>
+                  <p className="text-xs text-slate-200 bg-slate-900 p-3 rounded-xl">"{rev.comment}"</p>
 
-              <div className="flex items-center space-x-2 w-full sm:w-auto">
-                <select
-                  value={reviewRatingFilter}
-                  onChange={(e) => setReviewRatingFilter(e.target.value)}
-                  className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
-                >
-                  <option value="all">All Ratings</option>
-                  <option value="5">5 Stars Only (★★★★★)</option>
-                  <option value="4">4 Stars Only (★★★★)</option>
-                  <option value="3">3 Stars Only (★★★)</option>
-                  <option value="2">2 Stars Only (★★)</option>
-                  <option value="1">1 Star Only (★)</option>
-                </select>
-
-                <select
-                  value={reviewProductFilter}
-                  onChange={(e) => setReviewProductFilter(e.target.value)}
-                  className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
-                >
-                  <option value="all">All Products</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Reviews Cards List */}
-            {filteredReviews.length === 0 ? (
-              <div className="bg-slate-800 rounded-2xl border border-slate-700 p-12 text-center">
-                <MessageSquare className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                <h4 className="text-base font-bold text-white font-serif-brand">No Reviews Found</h4>
-                <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                  {reviewSearch || reviewRatingFilter !== 'all' || reviewProductFilter !== 'all'
-                    ? 'No reviews match your search and filter criteria.'
-                    : 'No customer reviews have been uploaded yet.'}
-                </p>
-                <button
-                  onClick={handleOpenAddReview}
-                  className="mt-4 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg"
-                >
-                  Upload First Review
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredReviews.map((rev) => (
-                  <div
-                    key={rev.id}
-                    className="bg-slate-800 rounded-2xl border border-slate-700/80 p-5 hover:border-slate-600 transition-all flex flex-col justify-between space-y-4"
-                  >
-                    <div>
-                      {/* Top user row */}
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500/20 to-amber-700/30 border border-amber-500/40 text-amber-300 font-bold flex items-center justify-center text-sm shrink-0">
-                            {rev.initials || rev.reviewerName.slice(0, 2).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="flex items-center space-x-1.5">
-                              <h4 className="font-bold text-white text-sm">{rev.reviewerName}</h4>
-                              {rev.verified && (
-                                <span className="inline-flex items-center space-x-0.5 px-1.5 py-0.5 bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 rounded text-[9px] font-bold">
-                                  <ShieldCheck className="w-2.5 h-2.5" />
-                                  <span>Verified</span>
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center space-x-2 text-[11px] text-slate-400 mt-0.5">
-                              <span>{rev.date}</span>
-                              <span>•</span>
-                              <span className="text-slate-300 truncate max-w-[140px]">
-                                {rev.productName || 'Musfira Beauty Cream'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center space-x-1.5">
-                          <button
-                            onClick={() => handleOpenEditReview(rev)}
-                            title="Edit Review"
-                            className="p-2 bg-slate-700 hover:bg-blue-600 text-slate-200 hover:text-white rounded-lg transition-colors"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteReview(rev.id)}
-                            title="Delete Review"
-                            className="p-2 bg-slate-700 hover:bg-red-600 text-slate-200 hover:text-white rounded-lg transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Stars Rating */}
-                      <div className="flex items-center space-x-1 mt-3">
-                        {[1, 2, 3, 4, 5].map((s) => (
-                          <Star
-                            key={s}
-                            className={`w-4 h-4 ${
-                              s <= rev.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-600'
-                            }`}
-                          />
-                        ))}
-                        <span className="text-xs font-bold text-amber-400 ml-1">
-                          {rev.rating}.0
-                        </span>
-                      </div>
-
-                      {/* Feedback Comment */}
-                      <p className="mt-2.5 text-xs text-slate-200 leading-relaxed font-sans bg-slate-900/60 p-3 rounded-xl border border-slate-750">
-                        "{rev.comment}"
-                      </p>
+                  {rev.beforeAfterImage && (
+                    <div className="pt-2 border-t border-slate-700 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400">Photo Proof Attached</span>
+                      <img
+                        src={rev.beforeAfterImage}
+                        alt="Proof"
+                        className="h-10 w-16 object-cover rounded border border-slate-700 cursor-pointer"
+                        onClick={() => setPreviewReviewImage(rev.beforeAfterImage || null)}
+                        referrerPolicy="no-referrer"
+                      />
                     </div>
-
-                    {/* Attached Photo Preview */}
-                    {rev.beforeAfterImage && (
-                      <div className="pt-2 border-t border-slate-700/60 flex items-center justify-between">
-                        <div className="flex items-center space-x-2 text-xs text-slate-400">
-                          <Camera className="w-3.5 h-3.5 text-amber-400" />
-                          <span>Photo Proof Attached</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setPreviewReviewImage(rev.beforeAfterImage || null)}
-                          className="group relative h-10 w-16 rounded-lg overflow-hidden border border-slate-600 hover:border-amber-400 transition-colors"
-                        >
-                          <img
-                            src={rev.beforeAfterImage}
-                            alt="Review proof"
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                            referrerPolicy="no-referrer"
-                          />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                            <Eye className="w-3.5 h-3.5 text-white" />
-                          </div>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -1134,7 +1704,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
 
         {/* TAB 7: SETTINGS */}
         {activeTab === 'settings' && siteSettings && (
-          <form onSubmit={handleSaveSettings} className="bg-slate-800 p-6 sm:p-8 rounded-2xl border border-slate-700 space-y-6">
+          <form
+            onSubmit={handleSaveSettings}
+            className="bg-slate-800 p-6 sm:p-8 rounded-2xl border border-slate-700 space-y-6"
+          >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div>
                 <label className="block font-semibold text-slate-300 mb-1">Brand Name</label>
@@ -1279,135 +1852,404 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
         )}
       </main>
 
-      {/* Product Edit / Create Modal */}
+      {/* FULL PRODUCT EDIT / CREATE MODAL WITH FILE UPLOAD AND PRICE/DISCOUNT EDIT */}
       {showProductModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-800 rounded-2xl max-w-2xl w-full p-6 border border-slate-700 text-slate-100 max-h-[90vh] overflow-y-auto space-y-4">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-800 rounded-2xl max-w-3xl w-full p-6 sm:p-8 border border-slate-700 text-slate-100 max-h-[92vh] overflow-y-auto space-y-6 my-8">
             <div className="flex items-center justify-between pb-3 border-b border-slate-700">
-              <h3 className="text-lg font-bold font-serif-brand">
-                {selectedProduct ? `Edit ${selectedProduct.name}` : 'Create New Product'}
-              </h3>
-              <button onClick={() => setShowProductModal(false)} className="text-slate-400 hover:text-white">
+              <div>
+                <h3 className="text-lg font-bold font-serif-brand text-white flex items-center space-x-2">
+                  <Package className="w-5 h-5 text-blue-400" />
+                  <span>{selectedProduct ? `Edit ${selectedProduct.name}` : 'Create New Product'}</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Upload photos, edit active price, crossed price, discounts, stock, and bundle deals.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowProductModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                const name = formData.get('name') as string;
-                const price = Number(formData.get('price'));
-                const salePrice = Number(formData.get('salePrice')) || undefined;
-                const category = formData.get('category') as string;
-                const stock = Number(formData.get('stock')) || 0;
-                const description = formData.get('description') as string;
-                const imageUrl = formData.get('imageUrl') as string;
-
-                handleSaveProduct({
-                  name,
-                  price,
-                  salePrice,
-                  category,
-                  stock,
-                  stockStatus: stock > 0 ? 'in_stock' : 'sold_out',
-                  description,
-                  images: imageUrl ? [imageUrl] : selectedProduct?.images || [BrandAssets.creamHero],
-                });
-              }}
-              className="space-y-4 text-xs"
-            >
-              <div>
-                <label className="block font-semibold mb-1 text-slate-300">Product Name</label>
-                <input
-                  type="text"
-                  name="name"
-                  required
-                  defaultValue={selectedProduct?.name || ''}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSaveProductForm} className="space-y-5 text-xs">
+              {/* Product Basic Info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-300">Active Price (PKR)</label>
+                  <label className="block font-semibold mb-1 text-slate-300">
+                    Product Title <span className="text-blue-400">*</span>
+                  </label>
                   <input
-                    type="number"
-                    name="price"
+                    type="text"
                     required
-                    defaultValue={selectedProduct?.price || 1499}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white"
+                    value={productForm.name}
+                    onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                    placeholder="e.g. Musfira Special Skincare Beauty Cream"
+                    className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-medium focus:outline-none focus:border-blue-500"
                   />
                 </div>
+
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-300">Crossed Original Price (Optional)</label>
+                  <label className="block font-semibold mb-1 text-slate-300">Product Tagline</label>
                   <input
-                    type="number"
-                    name="salePrice"
-                    defaultValue={selectedProduct?.salePrice || 3000}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white"
+                    type="text"
+                    value={productForm.tagline}
+                    onChange={(e) => setProductForm({ ...productForm, tagline: e.target.value })}
+                    placeholder="e.g. One Sold Every Minute* · 100% Original"
+                    className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-blue-500"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              {/* PRODUCT IMAGES FILE UPLOAD SECTION */}
+              <div className="bg-slate-900 p-5 rounded-2xl border border-slate-700 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block font-bold text-white text-xs flex items-center space-x-1.5">
+                      <ImageIcon className="w-4 h-4 text-amber-400" />
+                      <span>Product Photos (Upload File Option)</span>
+                    </label>
+                    <span className="text-[11px] text-slate-400">
+                      Upload high quality product pictures. The first photo will be used as the primary cover.
+                    </span>
+                  </div>
+                </div>
+
+                {/* Upload Button & Dropzone */}
+                <div className="flex flex-col sm:flex-row items-center gap-3">
+                  <label className="w-full sm:w-auto px-5 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl cursor-pointer flex items-center justify-center space-x-2 text-xs font-bold shadow transition-colors shrink-0">
+                    <Upload className="w-4 h-4 text-white" />
+                    <span>{isUploadingProductImage ? 'Uploading Image...' : 'Upload Image File'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      disabled={isUploadingProductImage}
+                      onChange={handleProductImageUpload}
+                      className="hidden"
+                    />
+                  </label>
+
+                  <span className="text-[10px] text-slate-500 hidden sm:inline">OR Paste direct URL:</span>
+
+                  <div className="flex-1 w-full flex items-center space-x-2">
+                    <input
+                      type="text"
+                      placeholder="Paste Image URL"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const val = (e.target as HTMLInputElement).value.trim();
+                          if (val) {
+                            setProductForm((prev) => ({
+                              ...prev,
+                              images: [...prev.images, val],
+                            }));
+                            (e.target as HTMLInputElement).value = '';
+                          }
+                        }
+                      }}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-[11px]"
+                    />
+                  </div>
+                </div>
+
+                {/* Image Thumbnails Gallery */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                  {productForm.images.map((imgUrl, idx) => (
+                    <div
+                      key={idx}
+                      className={`relative group bg-slate-950 rounded-xl overflow-hidden border-2 ${
+                        idx === 0 ? 'border-amber-400 shadow-sm' : 'border-slate-700'
+                      }`}
+                    >
+                      <img
+                        src={imgUrl}
+                        alt={`Photo ${idx + 1}`}
+                        className="w-full h-24 object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                      {idx === 0 && (
+                        <span className="absolute top-1.5 left-1.5 bg-amber-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
+                          Cover Photo
+                        </span>
+                      )}
+
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-1.5 transition-opacity">
+                        {idx !== 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleSetPrimaryProductImage(idx)}
+                            className="p-1 bg-amber-500 text-black rounded text-[10px] font-bold"
+                            title="Set as Cover"
+                          >
+                            Set Cover
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveProductImage(idx)}
+                          className="p-1 bg-red-600 text-white rounded hover:bg-red-500"
+                          title="Remove Photo"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* PRICING & DISCOUNT EDITING SECTION */}
+              <div className="bg-slate-900 p-5 rounded-2xl border border-slate-700 space-y-4">
+                <div className="flex items-center space-x-2">
+                  <DollarSign className="w-4 h-4 text-emerald-400" />
+                  <label className="block font-bold text-white text-xs">
+                    Price Change & Discount Configuration
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block font-semibold mb-1 text-slate-300">
+                      Active Selling Price (PKR) <span className="text-emerald-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-bold">Rs.</span>
+                      <input
+                        type="number"
+                        required
+                        value={productForm.price}
+                        onChange={(e) => {
+                          const newPrice = Number(e.target.value);
+                          const orig = productForm.salePrice || newPrice;
+                          const disc = orig > newPrice ? Math.round(((orig - newPrice) / orig) * 100) : 0;
+                          setProductForm({
+                            ...productForm,
+                            price: newPrice,
+                            discountPercentage: disc,
+                          });
+                        }}
+                        className="w-full pl-9 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white font-bold text-sm focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold mb-1 text-slate-300">
+                      Crossed-out Original Price (PKR)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-bold">Rs.</span>
+                      <input
+                        type="number"
+                        value={productForm.salePrice || ''}
+                        onChange={(e) => {
+                          const orig = Number(e.target.value);
+                          const disc =
+                            orig > productForm.price
+                              ? Math.round(((orig - productForm.price) / orig) * 100)
+                              : 0;
+                          setProductForm({
+                            ...productForm,
+                            salePrice: orig,
+                            discountPercentage: disc,
+                          });
+                        }}
+                        placeholder="e.g. 1999"
+                        className="w-full pl-9 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold mb-1 text-slate-300">
+                      Calculated Discount (% OFF)
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <div className="relative flex-1">
+                        <input
+                          type="number"
+                          value={productForm.discountPercentage || ''}
+                          onChange={(e) =>
+                            setProductForm({
+                              ...productForm,
+                              discountPercentage: Number(e.target.value),
+                            })
+                          }
+                          placeholder="Auto %"
+                          className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-amber-300 font-bold focus:outline-none focus:border-amber-500"
+                        />
+                        <span className="absolute right-3 top-2.5 text-xs text-slate-400">% OFF</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Live price preview */}
+                <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
+                  <span className="text-slate-400 text-[11px]">Customer View Preview:</span>
+                  <div className="flex items-baseline space-x-2">
+                    <span className="font-serif-brand font-bold text-emerald-400 text-sm">
+                      Rs.{productForm.price.toLocaleString()} PKR
+                    </span>
+                    {productForm.salePrice > productForm.price && (
+                      <span className="line-through text-slate-500 text-xs">
+                        Rs.{productForm.salePrice.toLocaleString()}
+                      </span>
+                    )}
+                    {productForm.salePrice > productForm.price && (
+                      <span className="bg-red-950 text-red-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-800">
+                        {Math.round(
+                          ((productForm.salePrice - productForm.price) / productForm.salePrice) * 100
+                        )}
+                        % OFF
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Category & Inventory Stock */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block font-semibold mb-1 text-slate-300">Category</label>
                   <select
-                    name="category"
-                    defaultValue={selectedProduct?.category || 'Beauty Creams'}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white"
+                    value={productForm.category}
+                    onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-blue-500"
                   >
                     {categories.map((c) => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
+                      <option key={c.id} value={c.name}>
+                        {c.name}
+                      </option>
                     ))}
                   </select>
                 </div>
+
                 <div>
                   <label className="block font-semibold mb-1 text-slate-300">Inventory Stock Quantity</label>
                   <input
                     type="number"
-                    name="stock"
-                    defaultValue={selectedProduct?.stock || 50}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white"
+                    value={productForm.stock}
+                    onChange={(e) => setProductForm({ ...productForm, stock: Number(e.target.value) })}
+                    className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block font-semibold mb-1 text-slate-300">Product Description</label>
+                <textarea
+                  rows={3}
+                  value={productForm.description}
+                  onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
+                  placeholder="Enriched with pure natural extracts and multi-vitamin complex..."
+                  className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              {/* Form Action Buttons */}
+              <div className="flex justify-end space-x-3 pt-3 border-t border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setShowProductModal(false)}
+                  className="px-5 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingProduct}
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold flex items-center space-x-1.5 disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{isSavingProduct ? 'Saving Product...' : 'Save Product'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* QUICK PRICE / DISCOUNT EDIT MODAL */}
+      {quickPriceProduct && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-800 rounded-2xl max-w-md w-full p-6 border border-slate-700 text-slate-100 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-700">
+              <h3 className="text-base font-bold font-serif-brand text-emerald-400 flex items-center space-x-2">
+                <DollarSign className="w-4 h-4" />
+                <span>Quick Price & Discount Edit</span>
+              </h3>
+              <button onClick={() => setQuickPriceProduct(null)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 font-medium">
+              Updating price for: <span className="text-white font-bold">{quickPriceProduct.name}</span>
+            </p>
+
+            <form onSubmit={handleSaveQuickPrice} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold mb-1 text-slate-300">
+                  Active Selling Price (PKR) <span className="text-emerald-400">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-bold">Rs.</span>
+                  <input
+                    type="number"
+                    required
+                    value={quickPrice}
+                    onChange={(e) => setQuickPrice(Number(e.target.value))}
+                    className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold text-sm"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-semibold mb-1 text-slate-300">Image URL</label>
-                <input
-                  type="text"
-                  name="imageUrl"
-                  defaultValue={selectedProduct?.images[0] || ''}
-                  placeholder="/src/assets/images/musfira_cream_hero_1788205132383.jpg"
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono"
-                />
+                <label className="block font-semibold mb-1 text-slate-300">
+                  Crossed-out Original Price (PKR)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-bold">Rs.</span>
+                  <input
+                    type="number"
+                    value={quickSalePrice}
+                    onChange={(e) => setQuickSalePrice(Number(e.target.value))}
+                    className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold text-sm"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block font-semibold mb-1 text-slate-300">Product Description</label>
-                <textarea
-                  name="description"
-                  rows={3}
-                  defaultValue={selectedProduct?.description || ''}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white"
-                />
-              </div>
+              {quickSalePrice > quickPrice && (
+                <div className="p-3 bg-slate-900 rounded-xl border border-slate-700 flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Discount Amount:</span>
+                  <span className="font-bold text-amber-300">
+                    {Math.round(((quickSalePrice - quickPrice) / quickSalePrice) * 100)}% OFF (Save Rs.
+                    {(quickSalePrice - quickPrice).toLocaleString()})
+                  </span>
+                </div>
+              )}
 
               <div className="flex justify-end space-x-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowProductModal(false)}
+                  onClick={() => setQuickPriceProduct(null)}
                   className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold"
+                  disabled={isSavingQuickPrice}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold flex items-center space-x-1.5"
                 >
-                  Save Product
+                  <Save className="w-4 h-4" />
+                  <span>{isSavingQuickPrice ? 'Updating...' : 'Update Price'}</span>
                 </button>
               </div>
             </form>
@@ -1440,7 +2282,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
                 <span className="font-bold text-white block">Items:</span>
                 {selectedOrder.items.map((it, idx) => (
                   <div key={idx} className="flex justify-between">
-                    <span>{it.name} (x{it.quantity})</span>
+                    <span>
+                      {it.name} (x{it.quantity})
+                    </span>
                     <span className="font-bold">Rs.{(it.price * it.quantity).toLocaleString()}</span>
                   </div>
                 ))}
@@ -1479,7 +2323,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
             </div>
 
             <form onSubmit={handleSaveReview} className="space-y-4 text-xs">
-              {/* Reviewer Name & Date */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold mb-1 text-slate-300">
@@ -1489,7 +2332,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
                     type="text"
                     required
                     value={reviewFormData.reviewerName}
-                    onChange={(e) => setReviewFormData({ ...reviewFormData, reviewerName: e.target.value })}
+                    onChange={(e) =>
+                      setReviewFormData({ ...reviewFormData, reviewerName: e.target.value })
+                    }
                     placeholder="e.g. Zainab Bibi / Sana Tariq"
                     className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
                   />
@@ -1556,7 +2401,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
                     className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-amber-500"
                   >
                     {products.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -1566,7 +2413,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
                     <input
                       type="checkbox"
                       checked={reviewFormData.verified}
-                      onChange={(e) => setReviewFormData({ ...reviewFormData, verified: e.target.checked })}
+                      onChange={(e) =>
+                        setReviewFormData({ ...reviewFormData, verified: e.target.checked })
+                      }
                       className="w-4 h-4 rounded text-emerald-600 focus:ring-0 bg-slate-800 border-slate-700"
                     />
                     <div className="flex items-center space-x-1 text-xs">
@@ -1577,7 +2426,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
                 </div>
               </div>
 
-              {/* Review Text / Feedback */}
+              {/* Review Text */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block font-semibold text-slate-300">
@@ -1593,31 +2442,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
                   placeholder="e.g. Boht farq parha Allah Kush rakhay app ko... / Very satisfied with the glow and quick delivery!"
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
                 />
-
-                {/* Quick Urdu Snippet Suggestions */}
-                <div className="flex flex-wrap gap-1.5 mt-1.5">
-                  <span className="text-[10px] text-slate-500 self-center">Quick inserts:</span>
-                  {[
-                    'صرف 7 دن میں رزلٹ مل گیا',
-                    'Boht farq parha Allah Kush rakhay app ko 🥺',
-                    '100% اصل کریم ہے، چہرہ بالکل صاف ہو گیا',
-                    'Dark spots and acne marks gone!',
-                  ].map((phrase, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() =>
-                        setReviewFormData({
-                          ...reviewFormData,
-                          comment: reviewFormData.comment ? `${reviewFormData.comment} ${phrase}` : phrase,
-                        })
-                      }
-                      className="text-[10px] px-2 py-0.5 bg-slate-750 hover:bg-slate-700 text-slate-300 rounded-md border border-slate-700 transition-colors"
-                    >
-                      +{phrase.slice(0, 20)}...
-                    </button>
-                  ))}
-                </div>
               </div>
 
               {/* Before / After Review Photo */}
@@ -1644,7 +2468,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
                   <input
                     type="text"
                     value={reviewFormData.beforeAfterImage}
-                    onChange={(e) => setReviewFormData({ ...reviewFormData, beforeAfterImage: e.target.value })}
+                    onChange={(e) =>
+                      setReviewFormData({ ...reviewFormData, beforeAfterImage: e.target.value })
+                    }
                     placeholder="Paste image URL (e.g. /uploads/...)"
                     className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-[11px] focus:outline-none focus:border-amber-500"
                   />
@@ -1689,7 +2515,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
                   className="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 rounded-lg font-bold flex items-center space-x-1.5 disabled:opacity-50"
                 >
                   <Save className="w-4 h-4 text-slate-950" />
-                  <span>{isSavingReview ? 'Saving...' : editingReview ? 'Update Review' : 'Upload Review'}</span>
+                  <span>
+                    {isSavingReview ? 'Saving...' : editingReview ? 'Update Review' : 'Upload Review'}
+                  </span>
                 </button>
               </div>
             </form>

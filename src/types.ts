@@ -16,6 +16,7 @@ export interface Product {
   tagline?: string;
   price: number;
   salePrice?: number;
+  discountPercentage?: number;
   sku: string;
   images: string[];
   category: string;
@@ -102,6 +103,7 @@ export interface SiteSettings {
   brandTagline: string;
   logoUrl: string;
   faviconUrl?: string;
+  landingImages?: string[];
   bismillahText: string;
   tickerText: string;
   phone: string;

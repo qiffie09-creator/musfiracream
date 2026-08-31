@@ -20,6 +20,7 @@ export interface DBProduct {
   tagline?: string;
   price: number;
   salePrice?: number;
+  discountPercentage?: number;
   sku: string;
   images: string[];
   category: string;
@@ -98,6 +99,7 @@ export interface DBSiteSettings {
   brandTagline: string;
   logoUrl: string;
   faviconUrl?: string;
+  landingImages?: string[];
   bismillahText: string;
   tickerText: string;
   phone: string;
@@ -558,6 +560,11 @@ function getInitialData(): DatabaseSchema {
       brandTagline: 'Special Skincare Beauty Cream',
       logoUrl: '/musfira_logo.jpg',
       faviconUrl: '/musfira_logo.jpg',
+      landingImages: [
+        '/src/assets/images/musfira_cream_hero_1788205132383.jpg',
+        '/src/assets/images/musfira_skin_polish_1788205147328.jpg',
+        '/src/assets/images/musfira_face_wash_1788205207755.jpg',
+      ],
       bismillahText: 'بِسْمِ اللَّهِ',
       tickerText: 'Free shipping all over Pakistan',
       phone: '+92 300 1234567',
