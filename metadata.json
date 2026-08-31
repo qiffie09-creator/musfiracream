@@ -1,0 +1,6 @@
+{
+  "name": "Musfira Beauty Cream",
+  "description": "Premium e-commerce website and admin management system for Musfira Special Skincare Beauty Cream and cosmetic line.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
