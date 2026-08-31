@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Mail, ShieldCheck, ArrowLeft, Loader2 } from 'lucide-react';
+import { Lock, Mail, ShieldCheck, ArrowLeft, Loader2, KeyRound } from 'lucide-react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { BrandAssets } from '../../assets/images';
 
@@ -8,15 +8,18 @@ interface AdminLoginProps {
 }
 
 export const AdminLogin: React.FC<AdminLoginProps> = ({ onBackToStore }) => {
-  const { login } = useAdminAuth();
+  const { login, resetPassword } = useAdminAuth();
   const [email, setEmail] = useState('musfirabeautycream@gmail.com');
   const [password, setPassword] = useState('admin123');
   const [isLoading, setIsLoading] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
+    setSuccessMsg('');
     try {
       setIsLoading(true);
       await login(email.trim(), password);
@@ -24,6 +27,24 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onBackToStore }) => {
       setErrorMsg(err.message || 'Invalid admin credentials');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setErrorMsg('Please enter your email above to receive a password reset link.');
+      return;
+    }
+    setErrorMsg('');
+    setSuccessMsg('');
+    try {
+      setIsResetting(true);
+      await resetPassword(email.trim());
+      setSuccessMsg(`Password reset instructions sent to ${email.trim()}`);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to send reset email. Ensure the email is registered.');
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -51,7 +72,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onBackToStore }) => {
           Musfira Admin Portal
         </h2>
         <p className="mt-2 text-xs text-slate-400">
-          Secure Store Management & Order Fulfillment System
+          Firebase Auth & Multi-Channel Store Management System
         </p>
       </div>
 
@@ -60,6 +81,12 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onBackToStore }) => {
           {errorMsg && (
             <div className="mb-6 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-400 font-medium">
               {errorMsg}
+            </div>
+          )}
+
+          {successMsg && (
+            <div className="mb-6 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-400 font-medium">
+              {successMsg}
             </div>
           )}
 
@@ -84,9 +111,19 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onBackToStore }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Admin Password
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-300">
+                  Admin Password
+                </label>
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={isResetting}
+                  className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors font-medium"
+                >
+                  {isResetting ? 'Sending...' : 'Forgot password?'}
+                </button>
+              </div>
               <div className="relative rounded-lg border border-slate-600 bg-slate-900/50 overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
                   <Lock className="w-4 h-4" />
@@ -101,7 +138,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onBackToStore }) => {
                 />
               </div>
               <p className="text-[11px] text-slate-500 mt-1">
-                Default: <span className="text-slate-400">admin123</span> (Change anytime in Admin Settings)
+                Default: <span className="text-slate-400">admin123</span>
               </p>
             </div>
 
@@ -114,7 +151,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onBackToStore }) => {
                 {isLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Authenticating...</span>
+                    <span>Authenticating with Firebase...</span>
                   </>
                 ) : (
                   <>

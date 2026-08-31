@@ -17,6 +17,9 @@ import {
 } from 'firebase/storage';
 import {
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  updatePassword,
   signOut,
   onAuthStateChanged,
   User as FirebaseUser,
@@ -383,6 +386,43 @@ export const firebaseApi = {
     await setDoc(docRef, settings, { merge: true });
     const snap = await getDoc(docRef);
     return snap.data() as SiteSettings;
+  },
+
+  // ============================
+  // FIREBASE AUTH (EMAIL & PASSWORD)
+  // ============================
+  async loginWithEmailPassword(email: string, password: string): Promise<FirebaseUser> {
+    const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
+    return cred.user;
+  },
+
+  async registerWithEmailPassword(email: string, password: string): Promise<FirebaseUser> {
+    const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+    return cred.user;
+  },
+
+  async sendPasswordReset(email: string): Promise<void> {
+    await sendPasswordResetEmail(auth, email.trim());
+  },
+
+  async updateUserPassword(newPassword: string): Promise<void> {
+    if (auth.currentUser) {
+      await updatePassword(auth.currentUser, newPassword);
+    } else {
+      throw new Error('No user is currently signed into Firebase Auth');
+    }
+  },
+
+  async firebaseSignOut(): Promise<void> {
+    await signOut(auth);
+  },
+
+  onAuthStateChanged(callback: (user: FirebaseUser | null) => void) {
+    return onAuthStateChanged(auth, callback);
+  },
+
+  getCurrentUser(): FirebaseUser | null {
+    return auth.currentUser;
   },
 
   // Firebase Storage direct file upload

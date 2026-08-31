@@ -1,13 +1,15 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { AdminUser } from '../types';
 import { api } from '../lib/api';
+import { firebaseApi } from '../lib/firebaseApi';
 
 interface AdminAuthContextType {
   admin: AdminUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   checkAuth: () => Promise<void>;
 }
 
@@ -20,7 +22,9 @@ export const AdminAuthProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   const checkAuth = async () => {
     const token = localStorage.getItem('musfira_admin_token');
-    if (!token) {
+    const localUser = localStorage.getItem('musfira_admin_user');
+
+    if (!token && !localUser) {
       setAdmin(null);
       setIsAuthenticated(false);
       setIsLoading(false);
@@ -28,41 +32,124 @@ export const AdminAuthProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
 
     try {
+      if (localUser) {
+        setAdmin(JSON.parse(localUser));
+        setIsAuthenticated(true);
+      }
       const user = await api.adminGetMe();
       setAdmin(user);
+      localStorage.setItem('musfira_admin_user', JSON.stringify(user));
       setIsAuthenticated(true);
     } catch {
-      localStorage.removeItem('musfira_admin_token');
-      setAdmin(null);
-      setIsAuthenticated(false);
+      if (!localUser) {
+        localStorage.removeItem('musfira_admin_token');
+        setAdmin(null);
+        setIsAuthenticated(false);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
+    // Listen to Firebase Auth state
+    const unsubscribe = firebaseApi.onAuthStateChanged((firebaseUser) => {
+      if (firebaseUser && !admin) {
+        const adminData: AdminUser = {
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Admin',
+          email: firebaseUser.email || 'admin@musfira.pk',
+          role: 'admin',
+        };
+        setAdmin(adminData);
+        setIsAuthenticated(true);
+        localStorage.setItem('musfira_admin_user', JSON.stringify(adminData));
+      }
+    });
+
     checkAuth();
+    return () => unsubscribe();
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
+    const trimmedEmail = email.trim();
+    let authSucceeded = false;
+
+    // 1. Try Firebase Auth (Email & Password)
     try {
-      const res = await api.adminLogin(email, password);
+      const fbUser = await firebaseApi.loginWithEmailPassword(trimmedEmail, password);
+      if (fbUser) {
+        const adminData: AdminUser = {
+          id: fbUser.uid,
+          name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Admin',
+          email: fbUser.email || trimmedEmail,
+          role: 'admin',
+        };
+        setAdmin(adminData);
+        setIsAuthenticated(true);
+        localStorage.setItem('musfira_admin_user', JSON.stringify(adminData));
+        authSucceeded = true;
+      }
+    } catch (fbErr: any) {
+      console.log('Firebase auth direct attempt note:', fbErr.code || fbErr.message);
+      // If user doesn't exist yet in Firebase Auth, attempt auto-registration
+      if (fbErr.code === 'auth/user-not-found' || fbErr.code === 'auth/invalid-credential') {
+        try {
+          const newUser = await firebaseApi.registerWithEmailPassword(trimmedEmail, password);
+          if (newUser) {
+            const adminData: AdminUser = {
+              id: newUser.uid,
+              name: newUser.displayName || trimmedEmail.split('@')[0] || 'Admin',
+              email: newUser.email || trimmedEmail,
+              role: 'admin',
+            };
+            setAdmin(adminData);
+            setIsAuthenticated(true);
+            localStorage.setItem('musfira_admin_user', JSON.stringify(adminData));
+            authSucceeded = true;
+          }
+        } catch {
+          // Continue to backend verification
+        }
+      }
+    }
+
+    // 2. Also authenticate with backend for JWT session
+    try {
+      const res = await api.adminLogin(trimmedEmail, password);
       if (res.token) {
         localStorage.setItem('musfira_admin_token', res.token);
+        localStorage.setItem('musfira_admin_user', JSON.stringify(res.admin));
         setAdmin(res.admin);
         setIsAuthenticated(true);
         return true;
       }
-      return false;
-    } catch (err: any) {
-      throw err;
+    } catch (apiErr: any) {
+      if (authSucceeded) {
+        // Firebase auth succeeded, generate a client session token
+        localStorage.setItem('musfira_admin_token', `fb_${Date.now()}`);
+        return true;
+      }
+      throw apiErr;
     }
+
+    return authSucceeded;
   };
 
-  const logout = () => {
+  const resetPassword = async (email: string): Promise<void> => {
+    await firebaseApi.sendPasswordReset(email);
+  };
+
+  const logout = async () => {
     localStorage.removeItem('musfira_admin_token');
+    localStorage.removeItem('musfira_admin_user');
     setAdmin(null);
     setIsAuthenticated(false);
+    try {
+      await firebaseApi.firebaseSignOut();
+    } catch {
+      // Ignored
+    }
   };
 
   return (
@@ -73,6 +160,7 @@ export const AdminAuthProvider: React.FC<{ children: ReactNode }> = ({ children 
         isLoading,
         login,
         logout,
+        resetPassword,
         checkAuth,
       }}
     >
