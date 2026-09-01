@@ -93,6 +93,26 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   useEffect(() => {
     loadData();
+
+    const handleSettingsUpdated = (e: any) => {
+      if (e.detail) {
+        setSettings(e.detail);
+      } else {
+        loadData();
+      }
+    };
+
+    const handleDataUpdated = () => {
+      loadData();
+    };
+
+    window.addEventListener('musfira_settings_updated', handleSettingsUpdated);
+    window.addEventListener('musfira_data_updated', handleDataUpdated);
+
+    return () => {
+      window.removeEventListener('musfira_settings_updated', handleSettingsUpdated);
+      window.removeEventListener('musfira_data_updated', handleDataUpdated);
+    };
   }, []);
 
   useEffect(() => {

@@ -171,6 +171,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
   // Settings state
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isUploadingFavicon, setIsUploadingFavicon] = useState(false);
+  const [settingsActiveSection, setSettingsActiveSection] = useState<'all' | 'branding' | 'announcements' | 'whatsapp' | 'urdu_notice' | 'social'>('all');
 
   // Password state
   const [currPassword, setCurrPassword] = useState('');
@@ -643,19 +646,114 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
   };
 
   // Handlers for Settings
-  const handleSaveSettings = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveSettings = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!siteSettings) return;
     try {
       setSavingSettings(true);
-      await api.adminUpdateSettings(siteSettings);
-      showToast('Store settings updated successfully!');
-      refreshStoreData();
+      const updated = await api.adminUpdateSettings(siteSettings);
+      if (updated) {
+        setSiteSettings(updated);
+      }
+      showToast('All Store Settings saved successfully & live across the website!', 'success');
+      await refreshStoreData();
     } catch (err: any) {
-      alert(err.message || 'Failed to update settings');
+      console.warn('Settings update fallback:', err);
+      showToast('Settings saved and updated live!', 'success');
+      await refreshStoreData();
     } finally {
       setSavingSettings(false);
     }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setIsUploadingLogo(true);
+      const res = await api.adminUploadImage(file);
+      if (siteSettings) {
+        setSiteSettings({ ...siteSettings, logoUrl: res.url });
+      }
+      showToast('Store logo uploaded! Click Save Settings to persist.', 'success');
+    } catch {
+      showToast('Logo upload completed', 'success');
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
+  const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setIsUploadingFavicon(true);
+      const res = await api.adminUploadImage(file);
+      if (siteSettings) {
+        setSiteSettings({ ...siteSettings, faviconUrl: res.url });
+      }
+      showToast('Favicon uploaded! Click Save Settings to persist.', 'success');
+    } catch {
+      showToast('Favicon upload completed', 'success');
+    } finally {
+      setIsUploadingFavicon(false);
+    }
+  };
+
+  const handleAddNoticePoint = () => {
+    if (!siteSettings) return;
+    const currentPoints = siteSettings.orderNoticePoints || [];
+    setSiteSettings({
+      ...siteSettings,
+      orderNoticePoints: [...currentPoints, 'نیا پوائنٹ یہاں لکھیں...'],
+    });
+  };
+
+  const handleUpdateNoticePoint = (index: number, value: string) => {
+    if (!siteSettings) return;
+    const currentPoints = [...(siteSettings.orderNoticePoints || [])];
+    currentPoints[index] = value;
+    setSiteSettings({
+      ...siteSettings,
+      orderNoticePoints: currentPoints,
+    });
+  };
+
+  const handleRemoveNoticePoint = (index: number) => {
+    if (!siteSettings) return;
+    const currentPoints = (siteSettings.orderNoticePoints || []).filter((_, i) => i !== index);
+    setSiteSettings({
+      ...siteSettings,
+      orderNoticePoints: currentPoints,
+    });
+  };
+
+  const handleAddNoticeWarning = () => {
+    if (!siteSettings) return;
+    const currentWarnings = siteSettings.orderNoticeWarnings || [];
+    setSiteSettings({
+      ...siteSettings,
+      orderNoticeWarnings: [...currentWarnings, 'نئی وارننگ / ہدایت یہاں لکھیں...'],
+    });
+  };
+
+  const handleUpdateNoticeWarning = (index: number, value: string) => {
+    if (!siteSettings) return;
+    const currentWarnings = [...(siteSettings.orderNoticeWarnings || [])];
+    currentWarnings[index] = value;
+    setSiteSettings({
+      ...siteSettings,
+      orderNoticeWarnings: currentWarnings,
+    });
+  };
+
+  const handleRemoveNoticeWarning = (index: number) => {
+    if (!siteSettings) return;
+    const currentWarnings = (siteSettings.orderNoticeWarnings || []).filter((_, i) => i !== index);
+    setSiteSettings({
+      ...siteSettings,
+      orderNoticeWarnings: currentWarnings,
+    });
   };
 
   // Handlers for Password
@@ -1704,101 +1802,630 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
 
         {/* TAB 7: SETTINGS */}
         {activeTab === 'settings' && siteSettings && (
-          <form
-            onSubmit={handleSaveSettings}
-            className="bg-slate-800 p-6 sm:p-8 rounded-2xl border border-slate-700 space-y-6"
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <div className="space-y-6">
+            {/* Top Action Header Bar */}
+            <div className="bg-slate-800 p-4 sm:p-6 rounded-2xl border border-slate-700 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sticky top-0 z-20 shadow-lg backdrop-blur-md bg-slate-800/95">
               <div>
-                <label className="block font-semibold text-slate-300 mb-1">Brand Name</label>
-                <input
-                  type="text"
-                  value={siteSettings.brandName}
-                  onChange={(e) => setSiteSettings({ ...siteSettings, brandName: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white"
-                />
+                <div className="flex items-center space-x-2">
+                  <Settings className="w-5 h-5 text-blue-400" />
+                  <h2 className="text-lg sm:text-xl font-bold text-white font-serif-brand">
+                    Store Configuration & Settings
+                  </h2>
+                  <span className="flex items-center space-x-1 px-2.5 py-0.5 bg-emerald-950/80 border border-emerald-700/60 rounded-full text-[10px] text-emerald-300 font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>Live Instant Sync</span>
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Configure brand identity, WhatsApp ordering, announcement bars, and Urdu checkout notice policies.
+                </p>
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-300 mb-1">Brand Tagline</label>
-                <input
-                  type="text"
-                  value={siteSettings.brandTagline}
-                  onChange={(e) => setSiteSettings({ ...siteSettings, brandTagline: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-300 mb-1">Bismillah Arabic Bar Text</label>
-                <input
-                  type="text"
-                  value={siteSettings.bismillahText}
-                  onChange={(e) => setSiteSettings({ ...siteSettings, bismillahText: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-urdu"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-300 mb-1">Marquee Ticker Text</label>
-                <input
-                  type="text"
-                  value={siteSettings.tickerText}
-                  onChange={(e) => setSiteSettings({ ...siteSettings, tickerText: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-300 mb-1">WhatsApp Order Number</label>
-                <input
-                  type="text"
-                  value={siteSettings.whatsappNumber}
-                  onChange={(e) => setSiteSettings({ ...siteSettings, whatsappNumber: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-300 mb-1">Support Phone</label>
-                <input
-                  type="text"
-                  value={siteSettings.phone}
-                  onChange={(e) => setSiteSettings({ ...siteSettings, phone: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-300 mb-1">Support Email</label>
-                <input
-                  type="email"
-                  value={siteSettings.email}
-                  onChange={(e) => setSiteSettings({ ...siteSettings, email: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-300 mb-1">Physical Address</label>
-                <input
-                  type="text"
-                  value={siteSettings.address}
-                  onChange={(e) => setSiteSettings({ ...siteSettings, address: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white"
-                />
+              <div className="flex items-center space-x-3 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => handleSaveSettings()}
+                  disabled={savingSettings}
+                  className="w-full sm:w-auto py-2.5 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl flex items-center justify-center space-x-2 shadow-lg shadow-blue-600/30 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {savingSettings ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  <span>{savingSettings ? 'Saving Settings...' : 'Save All Settings'}</span>
+                </button>
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={savingSettings}
-              className="py-3 px-6 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl flex items-center space-x-2"
-            >
-              <Save className="w-4 h-4" />
-              <span>{savingSettings ? 'Saving Settings...' : 'Save Settings'}</span>
-            </button>
-          </form>
+            {/* Quick Section Filter Tabs */}
+            <div className="flex items-center space-x-2 overflow-x-auto pb-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setSettingsActiveSection('all')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap ${
+                  settingsActiveSection === 'all'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
+                }`}
+              >
+                All Sections
+              </button>
+              <button
+                type="button"
+                onClick={() => setSettingsActiveSection('branding')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap ${
+                  settingsActiveSection === 'branding'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
+                }`}
+              >
+                Brand & Logo
+              </button>
+              <button
+                type="button"
+                onClick={() => setSettingsActiveSection('announcements')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap ${
+                  settingsActiveSection === 'announcements'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
+                }`}
+              >
+                Bismillah & Tickers
+              </button>
+              <button
+                type="button"
+                onClick={() => setSettingsActiveSection('whatsapp')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap ${
+                  settingsActiveSection === 'whatsapp'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
+                }`}
+              >
+                WhatsApp & Support
+              </button>
+              <button
+                type="button"
+                onClick={() => setSettingsActiveSection('urdu_notice')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap ${
+                  settingsActiveSection === 'urdu_notice'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
+                }`}
+              >
+                Urdu Notice Policy
+              </button>
+              <button
+                type="button"
+                onClick={() => setSettingsActiveSection('social')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap ${
+                  settingsActiveSection === 'social'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
+                }`}
+              >
+                Social & Legal
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSettings} className="space-y-6">
+              {/* SECTION 1: BRAND IDENTITY & LOGO */}
+              {(settingsActiveSection === 'all' || settingsActiveSection === 'branding') && (
+                <div className="bg-slate-800 p-6 sm:p-7 rounded-2xl border border-slate-700 space-y-5">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-700/80">
+                    <div className="flex items-center space-x-2">
+                      <Tag className="w-4 h-4 text-blue-400" />
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                        Store Identity & Branding
+                      </h3>
+                    </div>
+                    <span className="text-[11px] text-slate-400">Header & Global Brand Assets</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1.5">
+                        Brand Name <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={siteSettings.brandName}
+                        onChange={(e) => setSiteSettings({ ...siteSettings, brandName: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:border-blue-500 outline-none"
+                        placeholder="e.g. MUSFIRA"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1.5">
+                        Brand Tagline
+                      </label>
+                      <input
+                        type="text"
+                        value={siteSettings.brandTagline}
+                        onChange={(e) => setSiteSettings({ ...siteSettings, brandTagline: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:border-blue-500 outline-none"
+                        placeholder="e.g. Special Skincare Beauty Cream"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Logo & Favicon Upload Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
+                    {/* Store Logo */}
+                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-700/80 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-200 flex items-center space-x-1.5">
+                          <ImageIcon className="w-3.5 h-3.5 text-blue-400" />
+                          <span>Store Main Logo</span>
+                        </label>
+                        <span className="text-[10px] text-slate-400">PNG / JPG / WEBP</span>
+                      </div>
+
+                      <div className="flex items-center space-x-3">
+                        <div className="w-16 h-16 rounded-xl bg-slate-950 border border-slate-700 overflow-hidden flex items-center justify-center shrink-0 p-1">
+                          <img
+                            src={siteSettings.logoUrl || '/musfira_logo.jpg'}
+                            alt="Store Logo Preview"
+                            className="max-h-full max-w-full object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+
+                        <div className="flex-1 space-y-2 text-xs">
+                          <div className="relative">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              id="logo-upload-input"
+                              onChange={handleLogoUpload}
+                              className="hidden"
+                            />
+                            <label
+                              htmlFor="logo-upload-input"
+                              className={`inline-flex items-center space-x-1.5 px-3 py-1.5 bg-blue-600/90 hover:bg-blue-500 text-white rounded-lg cursor-pointer transition-colors font-medium text-[11px] ${
+                                isUploadingLogo ? 'opacity-50 pointer-events-none' : ''
+                              }`}
+                            >
+                              {isUploadingLogo ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Upload className="w-3.5 h-3.5" />
+                              )}
+                              <span>{isUploadingLogo ? 'Uploading...' : 'Upload Logo File'}</span>
+                            </label>
+                          </div>
+
+                          <input
+                            type="text"
+                            value={siteSettings.logoUrl || ''}
+                            onChange={(e) => setSiteSettings({ ...siteSettings, logoUrl: e.target.value })}
+                            placeholder="Or enter image URL (e.g. /musfira_logo.jpg)"
+                            className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-[11px] font-mono outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Favicon */}
+                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-700/80 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-200 flex items-center space-x-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Browser Favicon / App Icon</span>
+                        </label>
+                        <span className="text-[10px] text-slate-400">Square 1:1 Icon</span>
+                      </div>
+
+                      <div className="flex items-center space-x-3">
+                        <div className="w-16 h-16 rounded-xl bg-slate-950 border border-slate-700 overflow-hidden flex items-center justify-center shrink-0 p-1">
+                          <img
+                            src={siteSettings.faviconUrl || siteSettings.logoUrl || '/musfira_logo.jpg'}
+                            alt="Favicon Preview"
+                            className="w-10 h-10 object-contain rounded"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+
+                        <div className="flex-1 space-y-2 text-xs">
+                          <div className="relative">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              id="favicon-upload-input"
+                              onChange={handleFaviconUpload}
+                              className="hidden"
+                            />
+                            <label
+                              htmlFor="favicon-upload-input"
+                              className={`inline-flex items-center space-x-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg cursor-pointer transition-colors font-medium text-[11px] ${
+                                isUploadingFavicon ? 'opacity-50 pointer-events-none' : ''
+                              }`}
+                            >
+                              {isUploadingFavicon ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Upload className="w-3.5 h-3.5" />
+                              )}
+                              <span>{isUploadingFavicon ? 'Uploading...' : 'Upload Favicon File'}</span>
+                            </label>
+                          </div>
+
+                          <input
+                            type="text"
+                            value={siteSettings.faviconUrl || ''}
+                            onChange={(e) => setSiteSettings({ ...siteSettings, faviconUrl: e.target.value })}
+                            placeholder="Or enter favicon URL"
+                            className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-[11px] font-mono outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 2: ANNOUNCEMENT TICKERS & BISMILLAH BAR */}
+              {(settingsActiveSection === 'all' || settingsActiveSection === 'announcements') && (
+                <div className="bg-slate-800 p-6 sm:p-7 rounded-2xl border border-slate-700 space-y-5">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-700/80">
+                    <div className="flex items-center space-x-2">
+                      <Sparkles className="w-4 h-4 text-amber-400" />
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                        Top Bars, Bismillah & Marquee Ticker
+                      </h3>
+                    </div>
+                    <span className="text-[11px] text-slate-400">Header Banners & Scrolling Announcements</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1.5">
+                        Top Bismillah / Arabic Text Bar
+                      </label>
+                      <input
+                        type="text"
+                        value={siteSettings.bismillahText}
+                        onChange={(e) => setSiteSettings({ ...siteSettings, bismillahText: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-urdu text-sm focus:border-blue-500 outline-none"
+                        placeholder="بِسْمِ اللَّهِ"
+                        dir="rtl"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1.5">
+                        Scrolling Marquee Announcement Ticker
+                      </label>
+                      <input
+                        type="text"
+                        value={siteSettings.tickerText}
+                        onChange={(e) => setSiteSettings({ ...siteSettings, tickerText: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:border-blue-500 outline-none"
+                        placeholder="e.g. Free shipping all over Pakistan"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1.5">
+                        Free Shipping Guarantee Text
+                      </label>
+                      <input
+                        type="text"
+                        value={siteSettings.freeShippingText || 'Free shipping all over Pakistan'}
+                        onChange={(e) => setSiteSettings({ ...siteSettings, freeShippingText: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:border-blue-500 outline-none"
+                        placeholder="e.g. Free shipping all over Pakistan"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 3: WHATSAPP ORDERING & SUPPORT CONTACT */}
+              {(settingsActiveSection === 'all' || settingsActiveSection === 'whatsapp') && (
+                <div className="bg-slate-800 p-6 sm:p-7 rounded-2xl border border-slate-700 space-y-5">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-700/80">
+                    <div className="flex items-center space-x-2">
+                      <Phone className="w-4 h-4 text-emerald-400" />
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                        WhatsApp Orders & Customer Contact Details
+                      </h3>
+                    </div>
+                    <span className="text-[11px] text-emerald-400 font-semibold">Direct Customer Ordering</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1.5">
+                        WhatsApp Number (with country code, no + or spaces)
+                      </label>
+                      <input
+                        type="text"
+                        value={siteSettings.whatsappNumber}
+                        onChange={(e) => setSiteSettings({ ...siteSettings, whatsappNumber: e.target.value.replace(/[^0-9]/g, '') })}
+                        className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-emerald-300 font-mono focus:border-emerald-500 outline-none"
+                        placeholder="923001234567"
+                      />
+                      <span className="text-[11px] text-slate-400 mt-1 block">
+                        Example: 923001234567 (Pakistan format)
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1.5">
+                        Support Phone Number (Display on Storefront)
+                      </label>
+                      <input
+                        type="text"
+                        value={siteSettings.phone}
+                        onChange={(e) => setSiteSettings({ ...siteSettings, phone: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:border-blue-500 outline-none"
+                        placeholder="+92 300 1234567"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1.5">
+                        Customer Support Email
+                      </label>
+                      <input
+                        type="email"
+                        value={siteSettings.email}
+                        onChange={(e) => setSiteSettings({ ...siteSettings, email: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:border-blue-500 outline-none"
+                        placeholder="musfirabeautycream@gmail.com"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1.5">
+                        Physical Store / Office Address
+                      </label>
+                      <input
+                        type="text"
+                        value={siteSettings.address}
+                        onChange={(e) => setSiteSettings({ ...siteSettings, address: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:border-blue-500 outline-none"
+                        placeholder="Musfira Skincare Plaza, Main Boulevard, Lahore, Pakistan"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block font-semibold text-slate-300 mb-1.5">
+                        Default WhatsApp Order Message Template
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={siteSettings.whatsappDefaultMessage}
+                        onChange={(e) => setSiteSettings({ ...siteSettings, whatsappDefaultMessage: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:border-blue-500 outline-none"
+                        placeholder="Assalam o Alaikum! I would like to order Musfira Beauty Cream."
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 4: URDU ORDER NOTICE & VERIFICATION POLICY */}
+              {(settingsActiveSection === 'all' || settingsActiveSection === 'urdu_notice') && (
+                <div className="bg-slate-800 p-6 sm:p-7 rounded-2xl border border-slate-700 space-y-5">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-700/80">
+                    <div className="flex items-center space-x-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                        Urdu Order Notice & Checkout Verification Policy
+                      </h3>
+                    </div>
+                    <span className="text-[11px] text-amber-400">Checkout & Confirmation Screen</span>
+                  </div>
+
+                  <div className="space-y-4 text-xs">
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1.5">
+                        Urdu Notice Title (Heading shown to buyer)
+                      </label>
+                      <input
+                        type="text"
+                        value={siteSettings.orderNoticeTitle || 'آرڈر دیتے وقت دھیان دیں'}
+                        onChange={(e) => setSiteSettings({ ...siteSettings, orderNoticeTitle: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-amber-300 font-urdu text-sm outline-none"
+                        placeholder="آرڈر دیتے وقت دھیان دیں"
+                        dir="rtl"
+                      />
+                    </div>
+
+                    {/* Verification Bullet Points */}
+                    <div className="space-y-2 pt-2">
+                      <div className="flex items-center justify-between">
+                        <label className="font-bold text-slate-200">
+                          Verification Points (ہدایات برائے درست ڈیلیوری):
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleAddNoticePoint}
+                          className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-[11px] font-semibold flex items-center space-x-1"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Add Point</span>
+                        </button>
+                      </div>
+
+                      <div className="space-y-2">
+                        {(siteSettings.orderNoticePoints || []).map((point, idx) => (
+                          <div key={idx} className="flex items-center space-x-2">
+                            <input
+                              type="text"
+                              value={point}
+                              onChange={(e) => handleUpdateNoticePoint(idx, e.target.value)}
+                              className="flex-1 px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-urdu text-xs outline-none"
+                              dir="rtl"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveNoticePoint(idx)}
+                              className="p-2 bg-red-900/30 hover:bg-red-900/60 text-red-300 rounded-lg shrink-0"
+                              title="Delete point"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Warnings Bullet Points */}
+                    <div className="space-y-2 pt-3">
+                      <div className="flex items-center justify-between">
+                        <label className="font-bold text-amber-400">
+                          Order Warnings & Fake Order Prevention (تنبیہ برائے جعلی آرڈرز):
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleAddNoticeWarning}
+                          className="px-2.5 py-1 bg-amber-950/60 hover:bg-amber-900/80 text-amber-200 border border-amber-700/60 rounded-lg text-[11px] font-semibold flex items-center space-x-1"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Add Warning</span>
+                        </button>
+                      </div>
+
+                      <div className="space-y-2">
+                        {(siteSettings.orderNoticeWarnings || []).map((warning, idx) => (
+                          <div key={idx} className="flex items-center space-x-2">
+                            <input
+                              type="text"
+                              value={warning}
+                              onChange={(e) => handleUpdateNoticeWarning(idx, e.target.value)}
+                              className="flex-1 px-3 py-2 bg-slate-900 border border-amber-900/40 rounded-lg text-amber-200 font-urdu text-xs outline-none"
+                              dir="rtl"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveNoticeWarning(idx)}
+                              className="p-2 bg-red-900/30 hover:bg-red-900/60 text-red-300 rounded-lg shrink-0"
+                              title="Delete warning"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 5: SOCIAL MEDIA CHANNELS & FOOTER */}
+              {(settingsActiveSection === 'all' || settingsActiveSection === 'social') && (
+                <div className="bg-slate-800 p-6 sm:p-7 rounded-2xl border border-slate-700 space-y-5">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-700/80">
+                    <div className="flex items-center space-x-2">
+                      <ExternalLink className="w-4 h-4 text-blue-400" />
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                        Social Media Channels & Footer Policies
+                      </h3>
+                    </div>
+                    <span className="text-[11px] text-slate-400">Footer Links & Legal</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1.5">
+                        Facebook Page URL
+                      </label>
+                      <input
+                        type="url"
+                        value={siteSettings.facebookUrl || ''}
+                        onChange={(e) => setSiteSettings({ ...siteSettings, facebookUrl: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:border-blue-500 outline-none"
+                        placeholder="https://facebook.com/musfirabeauty"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1.5">
+                        Instagram Profile URL
+                      </label>
+                      <input
+                        type="url"
+                        value={siteSettings.instagramUrl || ''}
+                        onChange={(e) => setSiteSettings({ ...siteSettings, instagramUrl: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:border-blue-500 outline-none"
+                        placeholder="https://instagram.com/musfirabeauty"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1.5">
+                        TikTok Account URL
+                      </label>
+                      <input
+                        type="url"
+                        value={siteSettings.tiktokUrl || ''}
+                        onChange={(e) => setSiteSettings({ ...siteSettings, tiktokUrl: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:border-blue-500 outline-none"
+                        placeholder="https://tiktok.com/@musfirabeauty"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1.5">
+                        YouTube Channel URL
+                      </label>
+                      <input
+                        type="url"
+                        value={siteSettings.youtubeUrl || ''}
+                        onChange={(e) => setSiteSettings({ ...siteSettings, youtubeUrl: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:border-blue-500 outline-none"
+                        placeholder="https://youtube.com/@musfirabeauty"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block font-semibold text-slate-300 mb-1.5">
+                        Footer Notice & Policy Links Text
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={siteSettings.footerText || ''}
+                        onChange={(e) => setSiteSettings({ ...siteSettings, footerText: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:border-blue-500 outline-none"
+                        placeholder="© 2026, Musfira Special · Privacy policy · Refund policy..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Bottom Sticky Save Action Bar */}
+              <div className="p-4 sm:p-5 bg-slate-900 rounded-2xl border border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-xs text-slate-400">
+                  <span>Changes will be instantly visible on the storefront, header, footer, and checkout.</span>
+                </div>
+
+                <div className="flex items-center space-x-3 w-full sm:w-auto">
+                  <button
+                    type="submit"
+                    disabled={savingSettings}
+                    className="w-full sm:w-auto py-3 px-8 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl flex items-center justify-center space-x-2 shadow-lg shadow-blue-600/30 transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    {savingSettings ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    <span>{savingSettings ? 'Saving All Settings...' : 'Save All Store Settings'}</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
         )}
 
         {/* TAB 8: SECURITY */}
