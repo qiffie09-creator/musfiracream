@@ -39,6 +39,8 @@ import {
   Layers,
   ArrowUpRight,
   Home,
+  Lock,
+  Key,
 } from 'lucide-react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { useStore } from '../../context/StoreContext';

@@ -23,7 +23,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) =
     openQuickOrder(product, product.bundles?.find((b) => b.isDefault));
   };
 
-  const mainImage = product.images && product.images.length > 0 ? product.images[0] : null;
+  const fallbackImage =
+    product.slug === 'musfira-glow-skin-polish'
+      ? BrandAssets.skinPolish
+      : product.slug === 'musfira-acne-serum'
+      ? BrandAssets.acneSerum
+      : BrandAssets.creamHero;
+
+  const mainImage = product.images && product.images.length > 0 ? product.images[0] : fallbackImage;
 
   return (
     <div
@@ -32,20 +39,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) =
     >
       {/* Product Image Box */}
       <div className="relative aspect-square w-full bg-slate-50 overflow-hidden flex items-center justify-center">
-        {mainImage ? (
-          <img
-            src={mainImage}
-            alt={product.name}
-            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
-            referrerPolicy="no-referrer"
-            loading="lazy"
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center p-4 text-center text-slate-400">
-            <ShoppingBag className="w-8 h-8 text-slate-300 mb-1" />
-            <span className="text-[10px] font-medium text-slate-400">Photo Pending</span>
-          </div>
-        )}
+        <img
+          src={mainImage}
+          alt={product.name}
+          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+          referrerPolicy="no-referrer"
+          loading="eager"
+        />
 
         {/* Sold out Badge matching screenshot 3 and 4 */}
         {isSoldOut ? (

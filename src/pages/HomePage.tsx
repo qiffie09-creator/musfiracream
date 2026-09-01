@@ -96,7 +96,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentV
       ? settings.landingImages
       : heroProduct?.images && heroProduct.images.length > 0
       ? heroProduct.images
-      : [];
+      : [BrandAssets.creamHero, BrandAssets.beforeAfter];
 
   const handlePrevImage = () => {
     if (heroImages.length === 0) return;
