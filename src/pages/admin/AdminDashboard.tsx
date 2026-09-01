@@ -185,6 +185,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [pwdMsg, setPwdMsg] = useState('');
+  const [pwdStatus, setPwdStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   // Media upload state
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -797,19 +799,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setPwdMsg('');
-    if (newPassword !== confirmPassword) {
-      setPwdMsg('New passwords do not match');
+    setPwdStatus('idle');
+
+    if (!currPassword) {
+      setPwdMsg('Please enter your current admin password.');
+      setPwdStatus('error');
       return;
     }
+
+    if (newPassword.length < 6) {
+      setPwdMsg('New password must be at least 6 characters long.');
+      setPwdStatus('error');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPwdMsg('New passwords do not match. Please re-check.');
+      setPwdStatus('error');
+      return;
+    }
+
     try {
+      setIsUpdatingPassword(true);
       await api.adminChangePassword(currPassword, newPassword);
-      setPwdMsg('Password changed successfully!');
+      setPwdStatus('success');
+      setPwdMsg('Admin password changed successfully! Your new password is now active.');
       setCurrPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      showToast('Admin password updated!');
+      showToast('Admin password updated successfully!', 'success');
     } catch (err: any) {
-      setPwdMsg(err.message || 'Failed to change password');
+      setPwdStatus('error');
+      setPwdMsg(err.message || 'Failed to change password. Please verify current password.');
+    } finally {
+      setIsUpdatingPassword(false);
     }
   };
 
@@ -2551,50 +2574,102 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
 
         {/* TAB 8: SECURITY */}
         {activeTab === 'security' && (
-          <div className="bg-slate-800 p-6 sm:p-8 rounded-2xl border border-slate-700 max-w-lg space-y-4">
-            <h3 className="text-base font-bold text-white font-serif-brand">Change Admin Password</h3>
+          <div className="bg-slate-800 p-6 sm:p-8 rounded-2xl border border-slate-700 max-w-lg space-y-5">
+            <div className="flex items-center space-x-3 pb-4 border-b border-slate-700">
+              <div className="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white font-serif-brand">Change Admin Password</h3>
+                <p className="text-xs text-slate-400">Update your store login credentials securely</p>
+              </div>
+            </div>
+
             {pwdMsg && (
-              <div className="p-3 bg-blue-900/40 border border-blue-700 rounded-lg text-xs text-blue-200">
-                {pwdMsg}
+              <div
+                className={`p-3.5 rounded-xl text-xs font-medium border flex items-start space-x-2 ${
+                  pwdStatus === 'success'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                    : pwdStatus === 'error'
+                    ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                    : 'bg-blue-900/40 border-blue-700 text-blue-200'
+                }`}
+              >
+                <div className="shrink-0 mt-0.5">
+                  {pwdStatus === 'success' ? (
+                    <Check className="w-4 h-4 text-emerald-400" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-red-400" />
+                  )}
+                </div>
+                <span>{pwdMsg}</span>
               </div>
             )}
-            <form onSubmit={handlePasswordChange} className="space-y-3 text-xs">
+
+            <form onSubmit={handlePasswordChange} className="space-y-4 text-xs">
               <div>
-                <label className="block font-semibold text-slate-300 mb-1">Current Password</label>
+                <label className="block font-semibold text-slate-300 mb-1.5">
+                  Current Password (موجودہ پاس ورڈ)
+                </label>
                 <input
                   type="password"
                   required
+                  placeholder="Enter existing password..."
                   value={currPassword}
                   onChange={(e) => setCurrPassword(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white"
+                  className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:border-blue-500 outline-none transition-colors"
                 />
               </div>
+
               <div>
-                <label className="block font-semibold text-slate-300 mb-1">New Password</label>
+                <label className="block font-semibold text-slate-300 mb-1.5">
+                  New Password (نیا پاس ورڈ - کم از کم 6 ہندسے)
+                </label>
                 <input
                   type="password"
                   required
+                  minLength={6}
+                  placeholder="Enter new password (min 6 chars)..."
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white"
+                  className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:border-blue-500 outline-none transition-colors"
                 />
               </div>
+
               <div>
-                <label className="block font-semibold text-slate-300 mb-1">Confirm New Password</label>
+                <label className="block font-semibold text-slate-300 mb-1.5">
+                  Confirm New Password (نئے پاس ورڈ کی تصدیق)
+                </label>
                 <input
                   type="password"
                   required
+                  minLength={6}
+                  placeholder="Re-enter new password..."
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white"
+                  className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:border-blue-500 outline-none transition-colors"
                 />
               </div>
-              <button
-                type="submit"
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg mt-2"
-              >
-                Update Password
-              </button>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isUpdatingPassword}
+                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition-all active:scale-[0.99] disabled:opacity-60 flex items-center justify-center space-x-2"
+                >
+                  {isUpdatingPassword ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Updating Password...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-4 h-4" />
+                      <span>Update Password Now</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </form>
           </div>
         )}

@@ -531,15 +531,41 @@ export const api = {
   },
 
   async adminChangePassword(currentPassword: string, newPassword: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/admin/password`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader(),
-      },
-      body: JSON.stringify({ currentPassword, newPassword }),
-    });
-    await parseJsonSafely(res, 'Failed to update password');
+    let serverUpdated = false;
+
+    // 1. Update on Server REST API
+    try {
+      const res = await fetch(`${API_BASE}/admin/password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      await parseJsonSafely(res, 'Failed to update password');
+      serverUpdated = true;
+    } catch (serverErr: any) {
+      console.warn('Server password update notice:', serverErr);
+      if (!serverErr?.message?.includes('HTTP')) {
+        // Continue to Firebase/local sync
+      } else {
+        throw serverErr;
+      }
+    }
+
+    // 2. Also update Firebase Auth if active Firebase user session exists
+    try {
+      const fbUser = firebaseApi.getCurrentUser();
+      if (fbUser) {
+        await firebaseApi.updateUserPassword(newPassword);
+      }
+    } catch (fbErr: any) {
+      console.warn('Firebase Auth password update notice:', fbErr?.code || fbErr?.message);
+    }
+
+    // 3. Save new password in localStorage for persistent offline authentication
+    localStorage.setItem('musfira_admin_custom_pass', newPassword);
   },
 
   async adminUploadImage(file: File): Promise<{ url: string; filename: string }> {

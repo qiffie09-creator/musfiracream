@@ -9,8 +9,8 @@ interface AdminLoginProps {
 
 export const AdminLogin: React.FC<AdminLoginProps> = ({ onBackToStore }) => {
   const { login, resetPassword } = useAdminAuth();
-  const [email, setEmail] = useState('musfirabeautycream@gmail.com');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -104,7 +104,8 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onBackToStore }) => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="musfirabeautycream@gmail.com"
+                  placeholder="Enter admin email..."
+                  autoComplete="off"
                   className="w-full pl-10 pr-3 py-2.5 bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
                 />
               </div>
@@ -133,13 +134,11 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onBackToStore }) => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="Enter admin password..."
+                  autoComplete="new-password"
                   className="w-full pl-10 pr-3 py-2.5 bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
                 />
               </div>
-              <p className="text-[11px] text-slate-500 mt-1">
-                Default: <span className="text-slate-400">admin123</span>
-              </p>
             </div>
 
             <div>

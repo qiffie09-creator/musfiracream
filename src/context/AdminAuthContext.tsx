@@ -142,7 +142,9 @@ export const AdminAuthProvider: React.FC<{ children: ReactNode }> = ({ children 
         trimmedEmail === 'admin@musfira.pk' ||
         trimmedEmail === 'qiffie09@gmail.com';
 
+      const customPass = localStorage.getItem('musfira_admin_custom_pass');
       const isMatchingAdminPass = 
+        (Boolean(customPass) && password === customPass) ||
         password === 'admin123' ||
         password === 'MusfiraAdmin2026!';
 
