@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Share2, Sparkles, ShoppingBag, Eye, Star, Check, ShieldCheck, Truck, RefreshCw } from 'lucide-react';
-import { useStore } from '../context/StoreContext';
+import { useStore, INITIAL_PRODUCTS } from '../context/StoreContext';
 import { ProductBundle, Product } from '../types';
 import { UrduBenefitsSection } from '../components/UrduBenefitsSection';
 import { UrduOrderNotice } from '../components/UrduOrderNotice';
@@ -16,25 +16,67 @@ interface HomePageProps {
 export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentView }) => {
   const { products, openQuickOrder, addToCart, showToast, settings } = useStore();
 
-  // Find primary hero product (Musfira Special Cream)
-  const heroProduct = products.find((p) => p.slug === 'musfira-special-cream') || products[0];
+  // Find primary hero product (Musfira Special Cream) with safe fallback
+  const heroProduct =
+    products.find((p) => p.slug === 'musfira-special-cream' || p.isFeatured || p.isBestSeller) ||
+    products[0] ||
+    INITIAL_PRODUCTS[0];
 
   // Carousel image index
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // Bundle selection matching screenshot 10
-  const defaultBundle = heroProduct?.bundles?.find((b) => b.isDefault) || heroProduct?.bundles?.[1] || {
-    id: 'b-2',
-    name: '2 Packs',
-    packsCount: 2,
-    price: 2499,
-    originalPrice: 2998,
-    badge: 'Most Popular',
-    savingsText: 'Save Rs. 500',
-    isDefault: true,
-  };
+  // Safe fallback bundles
+  const availableBundles: ProductBundle[] =
+    heroProduct?.bundles && heroProduct.bundles.length > 0
+      ? heroProduct.bundles
+      : [
+          {
+            id: 'b-1',
+            name: '1 Pack',
+            packsCount: 1,
+            price: 1499,
+            originalPrice: 1999,
+            badge: 'Trial Pack',
+            isDefault: false,
+          },
+          {
+            id: 'b-2',
+            name: '2 Packs',
+            packsCount: 2,
+            price: 2499,
+            originalPrice: 2998,
+            badge: 'Most Popular',
+            savingsText: 'Save Rs. 500',
+            isDefault: true,
+          },
+          {
+            id: 'b-3',
+            name: '3 Packs',
+            packsCount: 3,
+            price: 3499,
+            originalPrice: 4497,
+            badge: 'Best Value',
+            savingsText: 'Save Rs. 1,000',
+            isDefault: false,
+          },
+        ];
+
+  // Initial bundle calculation
+  const defaultBundle =
+    availableBundles.find((b) => b.isDefault) || availableBundles[1] || availableBundles[0];
 
   const [selectedBundle, setSelectedBundle] = useState<ProductBundle>(defaultBundle);
+
+  // Sync selected bundle when heroProduct changes or updates from admin
+  useEffect(() => {
+    if (heroProduct && availableBundles.length > 0) {
+      setSelectedBundle((prev) => {
+        const found = availableBundles.find((b) => b.id === prev?.id);
+        if (found) return found;
+        return availableBundles.find((b) => b.isDefault) || availableBundles[1] || availableBundles[0];
+      });
+    }
+  }, [heroProduct?.id, heroProduct?.updatedAt, heroProduct?.price]);
 
   // Live viewer counter simulation
   const [viewersCount, setViewersCount] = useState(129);
@@ -45,11 +87,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentV
     return () => clearInterval(interval);
   }, []);
 
-  const heroImages = (settings?.landingImages && settings.landingImages.length > 0)
-    ? settings.landingImages
-    : (heroProduct?.images && heroProduct.images.length > 0
-        ? heroProduct.images
-        : [BrandAssets.creamHero, BrandAssets.skinPolish, BrandAssets.faceWash]);
+  const heroImages =
+    settings?.landingImages && settings.landingImages.length > 0
+      ? settings.landingImages
+      : heroProduct?.images && heroProduct.images.length > 0
+      ? heroProduct.images
+      : [BrandAssets.creamHero, BrandAssets.skinPolish, BrandAssets.faceWash];
 
   const handlePrevImage = () => {
     setCurrentImageIndex((prev) => (prev === 0 ? heroImages.length - 1 : prev - 1));
@@ -76,19 +119,24 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentV
     }
   };
 
-  const handleOrderNowClick = () => {
-    if (heroProduct) {
-      openQuickOrder(heroProduct, selectedBundle);
-    }
+  const handleOrderNowClick = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    const activeProd = heroProduct || INITIAL_PRODUCTS[0];
+    const activeBundle = selectedBundle || availableBundles[0];
+    openQuickOrder(activeProd, activeBundle);
   };
 
-  const handleAddToCartClick = () => {
-    if (heroProduct) {
-      addToCart(heroProduct, 1, selectedBundle);
-    }
+  const handleAddToCartClick = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    const activeProd = heroProduct || INITIAL_PRODUCTS[0];
+    const activeBundle = selectedBundle || availableBundles[0];
+    addToCart(activeProd, 1, activeBundle);
   };
 
   const otherProducts = products.filter((p) => p.id !== heroProduct?.id).slice(0, 4);
+
+  const currentPrice = selectedBundle?.price ?? heroProduct?.price ?? 1499;
+  const currentOriginalPrice = selectedBundle?.originalPrice ?? heroProduct?.salePrice ?? 1999;
 
   return (
     <div className="w-full bg-[#fdfdfd] pb-16">
@@ -192,11 +240,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentV
             <div className="pt-1">
               <div className="flex items-baseline space-x-3">
                 <span className="text-2xl sm:text-3xl font-serif-brand font-bold text-[#1b2b88]">
-                  Rs.{selectedBundle.price.toLocaleString()}.00 PKR
+                  Rs.{currentPrice.toLocaleString()}.00 PKR
                 </span>
-                {selectedBundle.originalPrice && selectedBundle.originalPrice > selectedBundle.price && (
+                {currentOriginalPrice && currentOriginalPrice > currentPrice && (
                   <span className="text-base text-slate-400 line-through font-serif-brand">
-                    Rs.{selectedBundle.originalPrice.toLocaleString()}.00 PKR
+                    Rs.{currentOriginalPrice.toLocaleString()}.00 PKR
                   </span>
                 )}
               </div>
@@ -209,8 +257,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentV
                 Select Bundle & Save:
               </label>
 
-              {heroProduct?.bundles?.map((b) => {
-                const isSelected = selectedBundle.id === b.id;
+              {availableBundles.map((b) => {
+                const isSelected = selectedBundle?.id === b.id;
                 return (
                   <div
                     key={b.id}
@@ -364,10 +412,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentV
       <div className="fixed bottom-0 left-0 right-0 z-30 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 md:hidden flex items-center justify-between shadow-2xl">
         <div className="flex flex-col">
           <span className="text-xs font-bold text-slate-900 font-serif-brand leading-none">
-            {selectedBundle.name}
+            {selectedBundle?.name || '2 Packs'}
           </span>
           <span className="text-sm font-bold text-[#1b2b88] font-serif-brand mt-0.5">
-            Rs.{selectedBundle.price.toLocaleString()}.00 PKR
+            Rs.{currentPrice.toLocaleString()}.00 PKR
           </span>
         </div>
 

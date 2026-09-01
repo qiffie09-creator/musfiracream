@@ -96,6 +96,10 @@ export const firebaseApi = {
       // Filter active only
       products = products.filter((p) => p.active !== false);
 
+      if (products.length === 0) {
+        throw new Error('No products in Firestore yet');
+      }
+
       if (params?.category && params.category !== 'all') {
         const catLower = params.category.toLowerCase();
         products = products.filter((p) => p.category.toLowerCase() === catLower || p.category.toLowerCase().includes(catLower));
@@ -144,19 +148,51 @@ export const firebaseApi = {
   async getCategories(): Promise<Category[]> {
     const colRef = collection(db, CATEGORIES_COLLECTION);
     const snapshot = await getDocs(colRef);
-    return snapshot.docs
+    const categories = snapshot.docs
       .map((d) => ({ ...d.data(), id: d.id } as Category))
       .filter((c) => c.active !== false);
+    if (categories.length === 0) {
+      throw new Error('No categories in Firestore yet');
+    }
+    return categories;
   },
 
   async getReviews(productId?: string): Promise<Review[]> {
     const colRef = collection(db, REVIEWS_COLLECTION);
     const snapshot = await getDocs(colRef);
     let reviews = snapshot.docs.map((d) => ({ ...d.data(), id: d.id } as Review));
+    if (reviews.length === 0) {
+      throw new Error('No reviews in Firestore yet');
+    }
     if (productId) {
       reviews = reviews.filter((r) => r.productId === productId);
     }
     return reviews;
+  },
+
+  async seedAllIfEmpty(data: { products?: Product[]; categories?: Category[]; settings?: SiteSettings; reviews?: Review[] }) {
+    try {
+      if (data.settings) {
+        await setDoc(doc(db, SETTINGS_COLLECTION, SETTINGS_DOC_ID), data.settings, { merge: true });
+      }
+      if (data.products && data.products.length > 0) {
+        for (const p of data.products) {
+          await setDoc(doc(db, PRODUCTS_COLLECTION, p.id), p, { merge: true });
+        }
+      }
+      if (data.categories && data.categories.length > 0) {
+        for (const c of data.categories) {
+          await setDoc(doc(db, CATEGORIES_COLLECTION, c.id), c, { merge: true });
+        }
+      }
+      if (data.reviews && data.reviews.length > 0) {
+        for (const r of data.reviews) {
+          await setDoc(doc(db, REVIEWS_COLLECTION, r.id), r, { merge: true });
+        }
+      }
+    } catch (e) {
+      console.warn('Firestore initial seeding error (continuing):', e);
+    }
   },
 
   async submitReview(data: Partial<Review>): Promise<Review> {

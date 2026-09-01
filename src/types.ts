@@ -2,6 +2,7 @@ export interface ProductBundle {
   id: string;
   name: string;
   packCount: number;
+  packsCount?: number;
   price: number;
   originalPrice?: number;
   savingsText?: string;

@@ -10,6 +10,45 @@ const PORT = 3000;
 async function startServer() {
   const app = express();
 
+  // Permissive CORS for authorized domains: musfiracream.qiffie09.workers.dev, musfirabeautycream.shop, Cloud Run preview, and localhost
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    const allowedOrigins = [
+      'https://musfiracream.qiffie09.workers.dev',
+      'http://musfiracream.qiffie09.workers.dev',
+      'https://musfirabeautycream.shop',
+      'https://www.musfirabeautycream.shop',
+      'http://musfirabeautycream.shop',
+      'http://www.musfirabeautycream.shop',
+    ];
+
+    if (origin) {
+      if (
+        allowedOrigins.includes(origin) ||
+        origin.endsWith('.workers.dev') ||
+        origin.endsWith('.shop') ||
+        origin.endsWith('.run.app') ||
+        origin.includes('localhost') ||
+        origin.includes('127.0.0.1')
+      ) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+      } else {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+      }
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
+    next();
+  });
+
   // Parse JSON and form bodies
   app.use(express.json({ limit: '15mb' }));
   app.use(express.urlencoded({ extended: true, limit: '15mb' }));

@@ -108,6 +108,15 @@ export const Footer: React.FC<FooterProps> = ({ setCurrentView }) => {
                   Track Order
                 </button>
               </li>
+              <li>
+                <button
+                  id="footer-admin-link"
+                  onClick={() => setCurrentView('admin')}
+                  className="hover:text-blue-900 transition-colors text-slate-400 hover:text-slate-700"
+                >
+                  Admin Portal
+                </button>
+              </li>
             </ul>
           </div>
 

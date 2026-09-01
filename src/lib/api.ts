@@ -53,7 +53,11 @@ export const api = {
       if (params?.sort) query.set('sort', params.sort);
 
       const res = await fetch(`${API_BASE}/products?${query.toString()}`);
-      return await parseJsonSafely<Product[]>(res, 'Failed to fetch products');
+      const serverProducts = await parseJsonSafely<Product[]>(res, 'Failed to fetch products');
+      if (serverProducts && serverProducts.length > 0) {
+        firebaseApi.seedAllIfEmpty({ products: serverProducts }).catch(() => {});
+      }
+      return serverProducts;
     }
   },
 
@@ -71,7 +75,11 @@ export const api = {
       return await firebaseApi.getCategories();
     } catch {
       const res = await fetch(`${API_BASE}/categories`);
-      return await parseJsonSafely<Category[]>(res, 'Failed to fetch categories');
+      const serverCategories = await parseJsonSafely<Category[]>(res, 'Failed to fetch categories');
+      if (serverCategories && serverCategories.length > 0) {
+        firebaseApi.seedAllIfEmpty({ categories: serverCategories }).catch(() => {});
+      }
+      return serverCategories;
     }
   },
 
@@ -81,7 +89,11 @@ export const api = {
     } catch {
       const query = productId ? `?productId=${encodeURIComponent(productId)}` : '';
       const res = await fetch(`${API_BASE}/reviews${query}`);
-      return await parseJsonSafely<Review[]>(res, 'Failed to fetch reviews');
+      const serverReviews = await parseJsonSafely<Review[]>(res, 'Failed to fetch reviews');
+      if (serverReviews && serverReviews.length > 0) {
+        firebaseApi.seedAllIfEmpty({ reviews: serverReviews }).catch(() => {});
+      }
+      return serverReviews;
     }
   },
 
@@ -121,6 +133,7 @@ export const api = {
       const serverSettings = await parseJsonSafely<SiteSettings>(res, 'Failed to fetch site settings');
       if (serverSettings && serverSettings.brandName) {
         localStorage.setItem('musfira_site_settings', JSON.stringify(serverSettings));
+        firebaseApi.seedAllIfEmpty({ settings: serverSettings }).catch(() => {});
         return serverSettings;
       }
     } catch {

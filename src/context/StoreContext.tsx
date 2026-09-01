@@ -1,6 +1,130 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { collection, doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { Product, Category, CartItem, ProductBundle, Review, SiteSettings } from '../types';
 import { api } from '../lib/api';
+import { BrandAssets } from '../assets/images';
+
+export const INITIAL_PRODUCTS: Product[] = [
+  {
+    id: 'msf-001',
+    sku: 'MSF-001',
+    name: 'Musfira Special Skincare Beauty Cream',
+    slug: 'musfira-special-cream',
+    tagline: '100% Original Formula For Spotless, Radiant & Glowing Skin',
+    price: 1499,
+    salePrice: 1999,
+    discountPercentage: 25,
+    category: 'creams',
+    stock: 500,
+    stockStatus: 'in_stock',
+    rating: 4.9,
+    reviewCount: 342,
+    images: [BrandAssets.creamHero, BrandAssets.skinPolish, BrandAssets.beforeAfter],
+    description:
+      'Musfira Special Skincare Beauty Cream is an authentic herbal skin-nourishing formula specially crafted for Pakistani skin tones. It visibly reduces dark spots, hyperpigmentation, uneven skin tone, and freckles while maintaining natural skin barrier moisture.',
+    shortDescription: '100% Guaranteed results in 7 days without harmful steroids or mercury.',
+    bundles: [
+      {
+        id: 'b-1',
+        name: '1 Pack',
+        packCount: 1,
+        packsCount: 1,
+        price: 1499,
+        originalPrice: 1999,
+        badge: 'Trial Pack',
+        isDefault: false,
+      },
+      {
+        id: 'b-2',
+        name: '2 Packs',
+        packCount: 2,
+        packsCount: 2,
+        price: 2499,
+        originalPrice: 2998,
+        badge: 'Most Popular',
+        savingsText: 'Save Rs. 500',
+        isDefault: true,
+      },
+      {
+        id: 'b-3',
+        name: '3 Packs',
+        packCount: 3,
+        packsCount: 3,
+        price: 3499,
+        originalPrice: 4497,
+        badge: 'Best Value',
+        savingsText: 'Save Rs. 1,000',
+        isDefault: false,
+      },
+    ],
+    isFeatured: true,
+    isBestSeller: true,
+    badges: ['Free Delivery', 'Cash on Delivery', '100% Original', 'No Side Effects'],
+    urduBenefits: [
+      'چہرے کے تمام داغ دھبے، چھائیاں اور پمپلز جڑ سے ختم کرے',
+      'رنگت کو نکھارے اور قدرتی چمک اور شادابی بخشے',
+      'سو فیصد اسٹیرائیڈ اور مرکری سے پاک محفوظ فارمولا',
+      'صرف سات دنوں میں واضح اور حیرت انگیز نتائج کی ضمانت',
+    ],
+    urduUsage: [
+      'رات سونے سے پہلے چہرے کو اچھے فیس واش سے دھو کر خشک کر لیں۔',
+      'تھوڑی سی مسفرا بیوٹی کریم لے کر چہرے اور گردن پر ہلکے ہاتھ سے لگائیں۔',
+      'صبح اٹھ کر نیم گرم یا ٹھنڈے پانی سے چہرہ دھو لیں۔',
+    ],
+    active: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'msf-002',
+    sku: 'MSF-002',
+    name: 'Musfira Glow Skin Polish',
+    slug: 'musfira-glow-skin-polish',
+    tagline: 'Instant Salon-Grade Radiance & Exfoliation',
+    price: 1299,
+    salePrice: 1699,
+    discountPercentage: 24,
+    category: 'polishes',
+    stock: 250,
+    stockStatus: 'in_stock',
+    rating: 4.8,
+    reviewCount: 189,
+    images: [BrandAssets.skinPolish, BrandAssets.creamHero],
+    description: 'Gentle micro-exfoliating skin polish that eliminates dead skin cells, softens texture, and unclogs pores.',
+    shortDescription: 'Instant parlor-like facial glow at home.',
+    isFeatured: true,
+    isBestSeller: false,
+    badges: ['Salon Finish', 'Free Delivery'],
+    active: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'msf-003',
+    sku: 'MSF-003',
+    name: 'Musfira Organic Acne & Blemish Serum',
+    slug: 'musfira-acne-serum',
+    tagline: 'Pure Tea Tree, Niacinamide & Salicylic Blend',
+    price: 1699,
+    salePrice: 2199,
+    discountPercentage: 23,
+    category: 'serums',
+    stock: 180,
+    stockStatus: 'in_stock',
+    rating: 4.9,
+    reviewCount: 215,
+    images: [BrandAssets.acneSerum, BrandAssets.creamHero],
+    description: 'Targeted spot reducer and pore minimizer with fast soothing action against stubborn breakouts.',
+    shortDescription: 'Clears acne marks and calms skin redness.',
+    isFeatured: true,
+    isBestSeller: true,
+    badges: ['Dermatologist Tested', 'Fast Acting'],
+    active: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
 
 interface StoreContextType {
   products: Product[];
@@ -36,11 +160,11 @@ interface StoreContextType {
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [categories, setCategories] = useState<Category[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [settings, setSettings] = useState<SiteSettings | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Cart local state with persistence
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -73,26 +197,110 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const loadData = async () => {
     try {
-      setIsLoading(true);
       const [fetchedProducts, fetchedCategories, fetchedReviews, fetchedSettings] = await Promise.all([
-        api.getProducts(),
-        api.getCategories(),
-        api.getReviews(),
-        api.getSettings(),
+        api.getProducts().catch(() => INITIAL_PRODUCTS),
+        api.getCategories().catch(() => []),
+        api.getReviews().catch(() => []),
+        api.getSettings().catch(() => null),
       ]);
-      setProducts(fetchedProducts);
-      setCategories(fetchedCategories);
-      setReviews(fetchedReviews);
-      setSettings(fetchedSettings);
+      if (fetchedProducts && fetchedProducts.length > 0) {
+        setProducts(fetchedProducts);
+      }
+      if (fetchedCategories && fetchedCategories.length > 0) {
+        setCategories(fetchedCategories);
+      }
+      if (fetchedReviews && fetchedReviews.length > 0) {
+        setReviews(fetchedReviews);
+      }
+      if (fetchedSettings) {
+        setSettings(fetchedSettings);
+      }
     } catch (err) {
       console.error('Failed to load store data:', err);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   useEffect(() => {
     loadData();
+
+    // Set up Real-time Live Firestore Listeners so changes from admin are immediately live
+    let unsubProducts = () => {};
+    let unsubCategories = () => {};
+    let unsubSettings = () => {};
+    let unsubReviews = () => {};
+
+    try {
+      unsubProducts = onSnapshot(
+        collection(db, 'products'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const liveProducts = snapshot.docs
+              .map((d) => ({ ...d.data(), id: d.id } as Product))
+              .filter((p) => p.active !== false);
+            if (liveProducts.length > 0) {
+              setProducts(liveProducts);
+            }
+          }
+        },
+        (error) => {
+          console.warn('Firestore live products listener warning (using fallback polling):', error.message);
+        }
+      );
+
+      unsubCategories = onSnapshot(
+        collection(db, 'categories'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const liveCats = snapshot.docs
+              .map((d) => ({ ...d.data(), id: d.id } as Category))
+              .filter((c) => c.active !== false);
+            if (liveCats.length > 0) {
+              setCategories(liveCats);
+            }
+          }
+        },
+        (error) => {
+          console.warn('Firestore live categories listener warning:', error.message);
+        }
+      );
+
+      unsubSettings = onSnapshot(
+        doc(db, 'settings', 'site_settings'),
+        (snapshot) => {
+          if (snapshot.exists()) {
+            const liveSettings = snapshot.data() as SiteSettings;
+            if (liveSettings && liveSettings.brandName) {
+              setSettings(liveSettings);
+            }
+          }
+        },
+        (error) => {
+          console.warn('Firestore live settings listener warning:', error.message);
+        }
+      );
+
+      unsubReviews = onSnapshot(
+        collection(db, 'reviews'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const liveReviews = snapshot.docs.map((d) => ({ ...d.data(), id: d.id } as Review));
+            if (liveReviews.length > 0) {
+              setReviews(liveReviews);
+            }
+          }
+        },
+        (error) => {
+          console.warn('Firestore live reviews listener warning:', error.message);
+        }
+      );
+    } catch (e) {
+      console.warn('Could not establish initial Firestore onSnapshot listeners:', e);
+    }
+
+    // Polling heartbeat every 10 seconds for seamless continuous synchronization
+    const pollInterval = setInterval(() => {
+      loadData();
+    }, 10000);
 
     const handleSettingsUpdated = (e: any) => {
       if (e.detail) {
@@ -110,6 +318,11 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     window.addEventListener('musfira_data_updated', handleDataUpdated);
 
     return () => {
+      unsubProducts();
+      unsubCategories();
+      unsubSettings();
+      unsubReviews();
+      clearInterval(pollInterval);
       window.removeEventListener('musfira_settings_updated', handleSettingsUpdated);
       window.removeEventListener('musfira_data_updated', handleDataUpdated);
     };
@@ -124,6 +337,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [cart]);
 
   const addToCart = (product: Product, quantity = 1, bundle?: ProductBundle) => {
+    if (!product) return;
     setCart((prev) => {
       const bundleId = bundle?.id || 'single';
       const existingIndex = prev.findIndex(
@@ -181,6 +395,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const openQuickOrder = (product: Product, bundle?: ProductBundle) => {
+    if (!product) return;
     setQuickOrderModal({
       isOpen: true,
       product,
@@ -240,3 +455,4 @@ export const useStore = () => {
   }
   return context;
 };
+
