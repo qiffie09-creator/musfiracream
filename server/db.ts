@@ -202,9 +202,7 @@ function getInitialData(): DatabaseSchema {
         price: 1499,
         salePrice: 1999,
         sku: 'MSF-CRM-01',
-        images: [
-          '/src/assets/images/musfira_cream_hero_1788205132383.jpg',
-        ],
+        images: [],
         category: 'Beauty Creams',
         stock: 450,
         stockStatus: 'in_stock',
@@ -254,6 +252,7 @@ function getInitialData(): DatabaseSchema {
             price: 3499,
             originalPrice: 4497,
             savingsText: 'Save Rs. 1000',
+            badge: 'Most Popular',
             isDefault: false,
           },
         ],
@@ -270,9 +269,7 @@ function getInitialData(): DatabaseSchema {
         price: 1999,
         salePrice: 3000,
         sku: 'MSF-POL-02',
-        images: [
-          '/src/assets/images/musfira_skin_polish_1788205147328.jpg',
-        ],
+        images: [],
         category: 'Skin Polish & Facials',
         stock: 0,
         stockStatus: 'sold_out',
@@ -295,9 +292,7 @@ function getInitialData(): DatabaseSchema {
         price: 1999,
         salePrice: 2800,
         sku: 'MSF-HRB-03',
-        images: [
-          '/src/assets/images/musfira_cream_hero_1788205132383.jpg',
-        ],
+        images: [],
         category: 'Body Care',
         stock: 0,
         stockStatus: 'sold_out',
@@ -320,9 +315,7 @@ function getInitialData(): DatabaseSchema {
         price: 1499,
         salePrice: 2200,
         sku: 'MSF-FCW-04',
-        images: [
-          '/src/assets/images/musfira_face_wash_1788205207755.jpg',
-        ],
+        images: [],
         category: 'Daily Care & Cleansers',
         stock: 0,
         stockStatus: 'sold_out',
@@ -345,9 +338,7 @@ function getInitialData(): DatabaseSchema {
         price: 1999,
         salePrice: 3000,
         sku: 'MSF-SRM-05',
-        images: [
-          '/src/assets/images/musfira_acne_serum_1788205164885.jpg',
-        ],
+        images: [],
         category: 'Serums & Essences',
         stock: 80,
         stockStatus: 'in_stock',
@@ -369,9 +360,7 @@ function getInitialData(): DatabaseSchema {
         price: 850,
         salePrice: 1200,
         sku: 'MSF-RSW-06',
-        images: [
-          '/src/assets/images/musfira_face_wash_1788205207755.jpg',
-        ],
+        images: [],
         category: 'Daily Care & Cleansers',
         stock: 120,
         stockStatus: 'in_stock',
@@ -393,9 +382,7 @@ function getInitialData(): DatabaseSchema {
         price: 1500,
         salePrice: 2000,
         sku: 'MSF-LPB-07',
-        images: [
-          '/src/assets/images/musfira_lip_balm_1788205187859.jpg',
-        ],
+        images: [],
         category: 'Daily Care & Cleansers',
         stock: 0,
         stockStatus: 'sold_out',
@@ -418,9 +405,7 @@ function getInitialData(): DatabaseSchema {
         price: 2000,
         salePrice: 3000,
         sku: 'MSF-ACN-08',
-        images: [
-          '/src/assets/images/musfira_acne_serum_1788205164885.jpg',
-        ],
+        images: [],
         category: 'Serums & Essences',
         stock: 0,
         stockStatus: 'sold_out',
@@ -560,11 +545,7 @@ function getInitialData(): DatabaseSchema {
       brandTagline: 'Special Skincare Beauty Cream',
       logoUrl: '/musfira_logo.jpg',
       faviconUrl: '/musfira_logo.jpg',
-      landingImages: [
-        '/src/assets/images/musfira_cream_hero_1788205132383.jpg',
-        '/src/assets/images/musfira_skin_polish_1788205147328.jpg',
-        '/src/assets/images/musfira_face_wash_1788205207755.jpg',
-      ],
+      landingImages: [],
       bismillahText: 'بِسْمِ اللَّهِ',
       tickerText: 'Free shipping all over Pakistan',
       phone: '+92 300 1234567',
@@ -603,7 +584,20 @@ export class Database {
     try {
       if (fs.existsSync(DB_FILE)) {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
-        return JSON.parse(raw);
+        const parsed: DatabaseSchema = JSON.parse(raw);
+        // Strip legacy example image paths if present
+        if (parsed.settings?.landingImages) {
+          parsed.settings.landingImages = parsed.settings.landingImages.filter(
+            (img) => !img.includes('/src/assets/images/')
+          );
+        }
+        if (parsed.products) {
+          parsed.products = parsed.products.map((p) => ({
+            ...p,
+            images: (p.images || []).filter((img) => !img.includes('/src/assets/images/')),
+          }));
+        }
+        return parsed;
       }
     } catch (err) {
       console.error('Error reading database file, resetting to initial data:', err);

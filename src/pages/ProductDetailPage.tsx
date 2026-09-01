@@ -18,9 +18,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onBa
 
   const product = products.find((p) => p.slug === slug) || products[0];
 
-  const images = product?.images && product.images.length > 0
-    ? product.images
-    : [BrandAssets.creamHero];
+  const images = product?.images && product.images.length > 0 ? product.images : [];
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
@@ -72,40 +70,48 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onBa
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
           {/* Gallery */}
           <div className="flex flex-col items-center">
-            <div className="relative w-full aspect-square bg-slate-50 rounded-2xl overflow-hidden shadow-sm border border-slate-100">
-              <img
-                src={images[activeImageIndex]}
-                alt={product.name}
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
+            {images.length > 0 ? (
+              <div className="relative w-full aspect-square bg-slate-50 rounded-2xl overflow-hidden shadow-sm border border-slate-100">
+                <img
+                  src={images[activeImageIndex] || images[0]}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
 
-              {isSoldOut && (
-                <div className="absolute top-4 left-4 bg-[#2f3bbd] text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow">
-                  Sold out
-                </div>
-              )}
-
-              {images.length > 1 && (
-                <>
-                  <button
-                    onClick={() => setActiveImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white p-2 rounded-full shadow"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setActiveImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white p-2 rounded-full shadow"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                  <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2.5 py-1 rounded-full">
-                    {activeImageIndex + 1} / {images.length}
+                {isSoldOut && (
+                  <div className="absolute top-4 left-4 bg-[#2f3bbd] text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow">
+                    Sold out
                   </div>
-                </>
-              )}
-            </div>
+                )}
+
+                {images.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => setActiveImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white p-2 rounded-full shadow"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setActiveImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white p-2 rounded-full shadow"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                    <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2.5 py-1 rounded-full">
+                      {activeImageIndex + 1} / {images.length}
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="relative w-full aspect-square bg-slate-50 rounded-2xl overflow-hidden shadow-xs border border-dashed border-slate-300 flex flex-col items-center justify-center p-6 text-center">
+                <ShoppingBag className="w-10 h-10 text-slate-300 mb-2" />
+                <h4 className="font-serif-brand font-bold text-slate-800 text-base">{product.name}</h4>
+                <span className="text-xs text-slate-400 mt-1">Photo upload pending from Admin Panel</span>
+              </div>
+            )}
 
             {/* Thumbnails */}
             {images.length > 1 && (

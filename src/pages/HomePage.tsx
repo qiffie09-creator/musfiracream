@@ -92,13 +92,15 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentV
       ? settings.landingImages
       : heroProduct?.images && heroProduct.images.length > 0
       ? heroProduct.images
-      : [BrandAssets.creamHero, BrandAssets.skinPolish, BrandAssets.faceWash];
+      : [];
 
   const handlePrevImage = () => {
+    if (heroImages.length === 0) return;
     setCurrentImageIndex((prev) => (prev === 0 ? heroImages.length - 1 : prev - 1));
   };
 
   const handleNextImage = () => {
+    if (heroImages.length === 0) return;
     setCurrentImageIndex((prev) => (prev === heroImages.length - 1 ? 0 : prev + 1));
   };
 
@@ -145,44 +147,64 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentV
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
           {/* Left Column: Product Packshot & Carousel */}
           <div className="flex flex-col items-center">
-            <div className="relative w-full aspect-square bg-slate-50 rounded-2xl overflow-hidden shadow-sm border border-slate-100 group">
-              <img
-                src={heroImages[currentImageIndex] || BrandAssets.creamHero}
-                alt={heroProduct?.name || 'Musfira Special Cream'}
-                className="w-full h-full object-cover object-center transition-all duration-300"
-                referrerPolicy="no-referrer"
-              />
+            {heroImages.length > 0 ? (
+              <div className="relative w-full aspect-square bg-slate-50 rounded-2xl overflow-hidden shadow-sm border border-slate-100 group">
+                <img
+                  src={heroImages[currentImageIndex] || heroImages[0]}
+                  alt={heroProduct?.name || 'Musfira Special Cream'}
+                  className="w-full h-full object-cover object-center transition-all duration-300"
+                  referrerPolicy="no-referrer"
+                />
 
-              {/* One Sold Every Minute Badge matching screenshot 10 */}
-              <div className="absolute top-4 left-4 bg-[#1b2b88] text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-md">
-                One Sold Every Minute*
+                {/* One Sold Every Minute Badge matching screenshot 10 */}
+                <div className="absolute top-4 left-4 bg-[#1b2b88] text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-md">
+                  One Sold Every Minute*
+                </div>
+
+                {/* Prev / Next Carousel Controls */}
+                {heroImages.length > 1 && (
+                  <>
+                    <button
+                      onClick={handlePrevImage}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-slate-800 p-2 rounded-full shadow-md transition-all focus:outline-none"
+                      aria-label="Previous image"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={handleNextImage}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-slate-800 p-2 rounded-full shadow-md transition-all focus:outline-none"
+                      aria-label="Next image"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+
+                    {/* Carousel Page Counter Indicator (e.g. 1/3) */}
+                    <div className="absolute bottom-4 right-4 bg-black/60 text-white text-xs font-medium px-2.5 py-1 rounded-full backdrop-blur-xs">
+                      {currentImageIndex + 1} / {heroImages.length}
+                    </div>
+                  </>
+                )}
               </div>
-
-              {/* Prev / Next Carousel Controls */}
-              {heroImages.length > 1 && (
-                <>
-                  <button
-                    onClick={handlePrevImage}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-slate-800 p-2 rounded-full shadow-md transition-all focus:outline-none"
-                    aria-label="Previous image"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={handleNextImage}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-slate-800 p-2 rounded-full shadow-md transition-all focus:outline-none"
-                    aria-label="Next image"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
-
-                  {/* Carousel Page Counter Indicator (e.g. 1/3) */}
-                  <div className="absolute bottom-4 right-4 bg-black/60 text-white text-xs font-medium px-2.5 py-1 rounded-full backdrop-blur-xs">
-                    {currentImageIndex + 1} / {heroImages.length}
-                  </div>
-                </>
-              )}
-            </div>
+            ) : (
+              <div className="relative w-full aspect-square bg-slate-50 rounded-2xl overflow-hidden shadow-xs border border-dashed border-slate-300 flex flex-col items-center justify-center p-6 text-center">
+                <div className="w-16 h-16 rounded-full bg-blue-50 text-[#1b2b88] flex items-center justify-center mb-3">
+                  <Sparkles className="w-7 h-7 text-[#1b2b88]" />
+                </div>
+                <h4 className="font-serif-brand font-bold text-slate-800 text-base sm:text-lg">
+                  {heroProduct?.name || 'Musfira Special Cream'}
+                </h4>
+                <p className="text-xs text-slate-500 max-w-xs mt-1">
+                  Ready to upload your real product pictures. Go to Admin Panel to upload new pictures anytime.
+                </p>
+                <button
+                  onClick={() => setCurrentView('admin')}
+                  className="mt-4 px-4 py-2 bg-[#1b2b88] hover:bg-[#2f3bbd] text-white text-xs font-bold rounded-xl shadow-xs transition-colors"
+                >
+                  Upload New Pictures (Admin)
+                </button>
+              </div>
+            )}
 
             {/* Thumbnail dots/previews */}
             {heroImages.length > 1 && (

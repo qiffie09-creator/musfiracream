@@ -205,17 +205,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
       setReviews(rev);
       setSiteSettings(sett);
 
-      // Initialize Landing 3 Pictures
+      // Initialize Landing Pictures
       if (sett?.landingImages && sett.landingImages.length > 0) {
         setLandingPictures(sett.landingImages);
       } else {
         const hero = pr.find((p) => p.slug === 'musfira-special-cream') || pr[0];
         if (hero?.images && hero.images.length > 0) {
-          setLandingPictures([
-            hero.images[0] || BrandAssets.creamHero,
-            hero.images[1] || BrandAssets.skinPolish,
-            hero.images[2] || BrandAssets.faceWash,
-          ]);
+          setLandingPictures(hero.images);
+        } else {
+          setLandingPictures([]);
         }
       }
 
@@ -331,7 +329,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
       const updated = prev.images.filter((_, idx) => idx !== indexToRemove);
       return {
         ...prev,
-        images: updated.length > 0 ? updated : [BrandAssets.creamHero],
+        images: updated,
       };
     });
   };
@@ -1316,20 +1314,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
                   {
                     title: '1. Primary Hero Packshot (Box + Jar)',
                     desc: 'Main product box packshot with "One Sold Every Minute*" badge.',
-                    preset: BrandAssets.creamHero,
                   },
                   {
                     title: '2. Polish & Formulation Texture',
                     desc: 'Shows natural rich creamy formulation texture and glow results.',
-                    preset: BrandAssets.skinPolish,
                   },
                   {
                     title: '3. Routine & Usage Result Proof',
                     desc: 'Face wash routine and verified glow skin results proof.',
-                    preset: BrandAssets.faceWash,
                   },
                 ].map((picInfo, idx) => {
-                  const currentImg = landingPictures[idx] || picInfo.preset;
+                  const currentImg = landingPictures[idx];
                   const isUploadingThis = isUploadingLandingPic === idx;
 
                   return (
@@ -1347,16 +1342,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
                         <p className="text-[11px] text-slate-400 mb-3">{picInfo.desc}</p>
 
                         {/* Image Preview Box */}
-                        <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-700 group">
-                          <img
-                            src={currentImg}
-                            alt={`Landing Picture ${idx + 1}`}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            referrerPolicy="no-referrer"
-                          />
-                          <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-1 rounded-full">
-                            Image #{idx + 1}
-                          </div>
+                        <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-700 flex items-center justify-center group">
+                          {currentImg ? (
+                            <>
+                              <img
+                                src={currentImg}
+                                alt={`Landing Picture ${idx + 1}`}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                referrerPolicy="no-referrer"
+                              />
+                              <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-1 rounded-full">
+                                Image #{idx + 1}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = [...landingPictures];
+                                  updated[idx] = '';
+                                  setLandingPictures(updated.filter(Boolean));
+                                }}
+                                className="absolute bottom-2 right-2 p-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg shadow text-xs"
+                                title="Remove photo"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center p-4 text-center text-slate-400">
+                              <ImageIcon className="w-8 h-8 text-slate-600 mb-1" />
+                              <span className="text-xs font-semibold text-slate-400">No Image Uploaded</span>
+                              <span className="text-[10px] text-slate-500 mt-0.5">Click below to upload photo</span>
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -1364,7 +1381,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
                       <div className="space-y-2 pt-2 border-t border-slate-800">
                         <label className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl cursor-pointer flex items-center justify-center space-x-2 text-xs font-bold shadow transition-colors">
                           <Upload className="w-4 h-4" />
-                          <span>{isUploadingThis ? 'Uploading Photo...' : 'Upload File (Replace)'}</span>
+                          <span>{isUploadingThis ? 'Uploading Photo...' : currentImg ? 'Replace Photo' : 'Upload Photo'}</span>
                           <input
                             type="file"
                             accept="image/*"
