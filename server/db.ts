@@ -28,6 +28,8 @@ export interface DBProduct {
   stockStatus: 'in_stock' | 'low_stock' | 'sold_out';
   isFeatured: boolean;
   isBestSeller: boolean;
+  showOnHomeScreen?: boolean;
+  isHeroProduct?: boolean;
   badges?: string[];
   rating: number;
   reviewCount: number;
@@ -99,6 +101,7 @@ export interface DBSiteSettings {
   brandTagline: string;
   logoUrl: string;
   faviconUrl?: string;
+  heroProductId?: string;
   landingImages?: string[];
   bismillahText: string;
   tickerText: string;
@@ -639,6 +642,19 @@ export class Database {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+    if (newProduct.showOnHomeScreen || newProduct.isHeroProduct) {
+      // Deactivate other hero flags if this product is set to hero
+      this.data.products.forEach((p) => {
+        p.isHeroProduct = false;
+        p.showOnHomeScreen = false;
+      });
+      newProduct.isHeroProduct = true;
+      newProduct.showOnHomeScreen = true;
+      this.data.settings.heroProductId = newProduct.id;
+      if (newProduct.images && newProduct.images.length > 0) {
+        this.data.settings.landingImages = newProduct.images;
+      }
+    }
     this.data.products.unshift(newProduct);
     this.save();
     return newProduct;
@@ -647,6 +663,22 @@ export class Database {
   public updateProduct(id: string, updates: Partial<DBProduct>): DBProduct | null {
     const index = this.data.products.findIndex((p) => p.id === id);
     if (index === -1) return null;
+
+    if (updates.showOnHomeScreen || updates.isHeroProduct) {
+      this.data.products.forEach((p) => {
+        if (p.id !== id) {
+          p.isHeroProduct = false;
+          p.showOnHomeScreen = false;
+        }
+      });
+      updates.isHeroProduct = true;
+      updates.showOnHomeScreen = true;
+      this.data.settings.heroProductId = id;
+      if (updates.images && updates.images.length > 0) {
+        this.data.settings.landingImages = updates.images;
+      }
+    }
+
     this.data.products[index] = {
       ...this.data.products[index],
       ...updates,

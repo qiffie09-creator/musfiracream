@@ -38,6 +38,7 @@ import {
   Sliders,
   Layers,
   ArrowUpRight,
+  Home,
 } from 'lucide-react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { useStore } from '../../context/StoreContext';
@@ -92,6 +93,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
     bundles: ProductBundle[];
     isFeatured: boolean;
     isBestSeller: boolean;
+    showOnHomeScreen: boolean;
+    isHeroProduct: boolean;
     badges: string[];
     urduBenefits: string[];
     urduUsage: string[];
@@ -114,6 +117,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
     ],
     isFeatured: true,
     isBestSeller: true,
+    showOnHomeScreen: false,
+    isHeroProduct: false,
     badges: ['Best Seller', '100% Original'],
     urduBenefits: [],
     urduUsage: [],
@@ -266,6 +271,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
         ],
         isFeatured: prod.isFeatured ?? true,
         isBestSeller: prod.isBestSeller ?? false,
+        showOnHomeScreen: Boolean(prod.showOnHomeScreen || prod.isHeroProduct || siteSettings?.heroProductId === prod.id),
+        isHeroProduct: Boolean(prod.showOnHomeScreen || prod.isHeroProduct || siteSettings?.heroProductId === prod.id),
         badges: prod.badges || ['Best Seller', '100% Original'],
         urduBenefits: prod.urduBenefits || [],
         urduUsage: prod.urduUsage || [],
@@ -283,7 +290,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
         stockStatus: 'in_stock',
         description: '',
         shortDescription: '',
-        images: [BrandAssets.creamHero],
+        images: [],
         bundles: [
           { id: 'b-1', name: '1 Pack', packCount: 1, price: 1499, isDefault: false },
           { id: 'b-2', name: '2 Packs', packCount: 2, price: 2499, originalPrice: 2998, savingsText: 'Save Rs. 500', badge: 'Most Popular', isDefault: true },
@@ -291,6 +298,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
         ],
         isFeatured: true,
         isBestSeller: false,
+        showOnHomeScreen: false,
+        isHeroProduct: false,
         badges: ['100% Original'],
         urduBenefits: [],
         urduUsage: [],
@@ -370,19 +379,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
         stockStatus: stockStatus as any,
         description: productForm.description,
         shortDescription: productForm.shortDescription,
-        images: productForm.images.length > 0 ? productForm.images : [BrandAssets.creamHero],
+        images: productForm.images.length > 0 ? productForm.images : [],
         bundles: productForm.bundles,
         isFeatured: productForm.isFeatured,
         isBestSeller: productForm.isBestSeller,
+        showOnHomeScreen: Boolean(productForm.showOnHomeScreen),
+        isHeroProduct: Boolean(productForm.showOnHomeScreen),
         badges: productForm.badges,
       };
 
+      let savedProdId = selectedProduct?.id;
       if (selectedProduct?.id) {
         await api.adminUpdateProduct(selectedProduct.id, payload);
         showToast(`Product "${productForm.name}" updated successfully!`);
       } else {
-        await api.adminCreateProduct(payload);
+        const created = await api.adminCreateProduct(payload);
+        savedProdId = created?.id;
         showToast(`New product "${productForm.name}" created!`);
+      }
+
+      if (productForm.showOnHomeScreen && savedProdId) {
+        await api.adminUpdateSettings({
+          heroProductId: savedProdId,
+          landingImages: productForm.images && productForm.images.length > 0 ? productForm.images : undefined,
+        });
       }
 
       setShowProductModal(false);
@@ -393,6 +413,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
       alert(err.message || 'Failed to save product');
     } finally {
       setIsSavingProduct(false);
+    }
+  };
+
+  // Quick 1-Click Set as Home Screen Hero Product
+  const handleSetHeroProduct = async (prod: Product) => {
+    try {
+      await api.adminUpdateProduct(prod.id, {
+        showOnHomeScreen: true,
+        isHeroProduct: true,
+      });
+      await api.adminUpdateSettings({
+        heroProductId: prod.id,
+        landingImages: prod.images && prod.images.length > 0 ? prod.images : undefined,
+      });
+      showToast(`"${prod.name}" is now the active Home Screen Hero!`);
+      await loadAllData();
+      refreshStoreData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to set as home screen hero');
     }
   };
 
@@ -1189,97 +1228,122 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
                         ? Math.round(((originalPrice - prod.price) / originalPrice) * 100)
                         : 0;
 
-                    return (
-                      <tr key={prod.id} className="hover:bg-slate-750 transition-colors">
-                        <td className="p-3.5 flex items-center space-x-3">
-                          <img
-                            src={prod.images[0] || BrandAssets.creamHero}
-                            alt=""
-                            className="w-12 h-12 object-cover rounded-xl bg-slate-900 border border-slate-700 shrink-0"
-                            referrerPolicy="no-referrer"
-                          />
-                          <div>
-                            <p className="font-bold text-white font-serif-brand text-sm">{prod.name}</p>
-                            <span className="text-[11px] text-slate-400 block">SKU: {prod.sku}</span>
-                            {prod.images.length > 1 && (
-                              <span className="text-[10px] text-blue-400">
-                                {prod.images.length} images
+                      const isHero = Boolean(
+                        prod.showOnHomeScreen ||
+                        prod.isHeroProduct ||
+                        siteSettings?.heroProductId === prod.id ||
+                        (!siteSettings?.heroProductId && prod.slug === 'musfira-special-cream')
+                      );
+
+                      return (
+                        <tr key={prod.id} className="hover:bg-slate-750 transition-colors">
+                          <td className="p-3.5 flex items-center space-x-3">
+                            <img
+                              src={prod.images[0] || BrandAssets.creamHero}
+                              alt=""
+                              className="w-12 h-12 object-cover rounded-xl bg-slate-900 border border-slate-700 shrink-0"
+                              referrerPolicy="no-referrer"
+                            />
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                <p className="font-bold text-white font-serif-brand text-sm">{prod.name}</p>
+                                {isHero && (
+                                  <span className="inline-flex items-center space-x-1 px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full text-[10px] font-bold">
+                                    <Sparkles className="w-3 h-3 text-amber-400" />
+                                    <span>Home Screen Hero</span>
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[11px] text-slate-400 block">SKU: {prod.sku}</span>
+                              {prod.images.length > 1 && (
+                                <span className="text-[10px] text-blue-400">
+                                  {prod.images.length} images
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3.5">
+                            <span className="bg-slate-900 text-slate-300 px-2.5 py-1 rounded-lg text-[11px] border border-slate-700">
+                              {prod.category}
+                            </span>
+                          </td>
+                          <td className="p-3.5">
+                            <div className="flex items-baseline space-x-2">
+                              <span className="font-bold text-emerald-400 font-serif-brand text-sm">
+                                Rs.{prod.price.toLocaleString()} PKR
+                              </span>
+                              {originalPrice > prod.price && (
+                                <span className="text-slate-400 line-through text-[11px]">
+                                  Rs.{originalPrice.toLocaleString()}
+                                </span>
+                              )}
+                            </div>
+                            {discount > 0 && (
+                              <span className="inline-block mt-0.5 bg-red-950 text-red-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-800">
+                                {discount}% OFF (Save Rs.{(originalPrice - prod.price).toLocaleString()})
                               </span>
                             )}
-                          </div>
-                        </td>
-                        <td className="p-3.5">
-                          <span className="bg-slate-900 text-slate-300 px-2.5 py-1 rounded-lg text-[11px] border border-slate-700">
-                            {prod.category}
-                          </span>
-                        </td>
-                        <td className="p-3.5">
-                          <div className="flex items-baseline space-x-2">
-                            <span className="font-bold text-emerald-400 font-serif-brand text-sm">
-                              Rs.{prod.price.toLocaleString()} PKR
+                          </td>
+                          <td className="p-3.5">
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                                prod.stockStatus === 'sold_out' || prod.stock <= 0
+                                  ? 'bg-red-900/50 text-red-300'
+                                  : 'bg-emerald-900/50 text-emerald-300'
+                              }`}
+                            >
+                              {prod.stockStatus === 'sold_out' || prod.stock <= 0
+                                ? 'Sold Out'
+                                : `${prod.stock} in stock`}
                             </span>
-                            {originalPrice > prod.price && (
-                              <span className="text-slate-400 line-through text-[11px]">
-                                Rs.{originalPrice.toLocaleString()}
+                          </td>
+                          <td className="p-3.5">
+                            {prod.active !== false ? (
+                              <span className="text-emerald-400 font-semibold flex items-center space-x-1">
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                <span>Active</span>
                               </span>
+                            ) : (
+                              <span className="text-slate-500 font-semibold">Inactive</span>
                             )}
-                          </div>
-                          {discount > 0 && (
-                            <span className="inline-block mt-0.5 bg-red-950 text-red-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-800">
-                              {discount}% OFF (Save Rs.{(originalPrice - prod.price).toLocaleString()})
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-3.5">
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                              prod.stockStatus === 'sold_out' || prod.stock <= 0
-                                ? 'bg-red-900/50 text-red-300'
-                                : 'bg-emerald-900/50 text-emerald-300'
-                            }`}
-                          >
-                            {prod.stockStatus === 'sold_out' || prod.stock <= 0
-                              ? 'Sold Out'
-                              : `${prod.stock} in stock`}
-                          </span>
-                        </td>
-                        <td className="p-3.5">
-                          {prod.active !== false ? (
-                            <span className="text-emerald-400 font-semibold flex items-center space-x-1">
-                              <CheckCircle className="w-3.5 h-3.5" />
-                              <span>Active</span>
-                            </span>
-                          ) : (
-                            <span className="text-slate-500 font-semibold">Inactive</span>
-                          )}
-                        </td>
-                        <td className="p-3.5 text-right space-x-2">
-                          <button
-                            onClick={() => handleOpenQuickPriceModal(prod)}
-                            className="p-2 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 rounded-lg inline-flex items-center space-x-1"
-                            title="Quick Edit Price & Discount"
-                          >
-                            <DollarSign className="w-3.5 h-3.5" />
-                            <span className="text-[11px] font-bold">Price</span>
-                          </button>
-                          <button
-                            onClick={() => handleOpenProductModal(prod)}
-                            className="p-2 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 rounded-lg inline-flex items-center space-x-1"
-                            title="Edit Full Product & Photos"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                            <span className="text-[11px]">Edit</span>
-                          </button>
-                          <button
-                            onClick={() => handleDeleteProduct(prod.id, prod.name)}
-                            className="p-2 bg-red-600/20 hover:bg-red-600/40 text-red-300 rounded-lg inline-flex items-center"
-                            title="Delete Product"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
+                          </td>
+                          <td className="p-3.5 text-right space-x-2">
+                            {!isHero && (
+                              <button
+                                onClick={() => handleSetHeroProduct(prod)}
+                                className="p-2 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 rounded-lg inline-flex items-center space-x-1"
+                                title="Set as Main Home Screen Landing Product"
+                              >
+                                <Home className="w-3.5 h-3.5" />
+                                <span className="text-[11px] font-bold">Set Home Hero</span>
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleOpenQuickPriceModal(prod)}
+                              className="p-2 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 rounded-lg inline-flex items-center space-x-1"
+                              title="Quick Edit Price & Discount"
+                            >
+                              <DollarSign className="w-3.5 h-3.5" />
+                              <span className="text-[11px] font-bold">Price</span>
+                            </button>
+                            <button
+                              onClick={() => handleOpenProductModal(prod)}
+                              className="p-2 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 rounded-lg inline-flex items-center space-x-1"
+                              title="Edit Full Product & Photos"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                              <span className="text-[11px]">Edit</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteProduct(prod.id, prod.name)}
+                              className="p-2 bg-red-600/20 hover:bg-red-600/40 text-red-300 rounded-lg inline-flex items-center"
+                              title="Delete Product"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
                   })}
                 </tbody>
               </table>
@@ -1305,6 +1369,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
                   <span className="px-3 py-1 bg-amber-400/20 text-amber-300 text-xs font-bold rounded-full border border-amber-500/40">
                     Live On Homepage
                   </span>
+                </div>
+              </div>
+
+              {/* Active Home Screen Product Selector */}
+              <div className="bg-slate-900/90 p-4 sm:p-5 rounded-2xl border border-amber-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <Home className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs sm:text-sm font-bold text-white">
+                      Selected Main Home Screen Product:
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300">
+                    Aap kisi bhi product ko select kar sakte hain taake wo Home Screen par sabse upar hero section mein show ho.
+                  </p>
+                </div>
+
+                <div className="flex items-center space-x-2 shrink-0">
+                  <select
+                    value={siteSettings?.heroProductId || products[0]?.id || ''}
+                    onChange={async (e) => {
+                      const selectedId = e.target.value;
+                      const prod = products.find((p) => p.id === selectedId);
+                      if (prod) {
+                        handleSetHeroProduct(prod);
+                        if (prod.images && prod.images.length > 0) {
+                          setLandingPictures(prod.images);
+                        }
+                        setHeroOfferPrice(prod.price);
+                        setHeroOfferSalePrice(prod.salePrice || Math.round(prod.price * 1.33));
+                      }
+                    }}
+                    className="px-3 py-2 bg-slate-800 border border-amber-500/50 rounded-xl text-xs font-bold text-amber-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                  >
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} {p.showOnHomeScreen ? '⭐ (Current Hero)' : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -2781,6 +2885,59 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToStore }) =
                     onChange={(e) => setProductForm({ ...productForm, stock: Number(e.target.value) })}
                     className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-blue-500"
                   />
+                </div>
+              </div>
+
+              {/* HOME SCREEN HERO PRODUCT VISIBILITY TOGGLE (User Request) */}
+              <div
+                className={`p-4 rounded-2xl border transition-all ${
+                  productForm.showOnHomeScreen
+                    ? 'bg-amber-950/40 border-amber-500/60 shadow-lg'
+                    : 'bg-slate-900/90 border-slate-700'
+                }`}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <Home
+                        className={`w-4 h-4 ${
+                          productForm.showOnHomeScreen ? 'text-amber-400' : 'text-slate-400'
+                        }`}
+                      />
+                      <span className="font-bold text-white text-xs sm:text-sm">
+                        Display on Home Screen (Main Landing Product)
+                      </span>
+                      {productForm.showOnHomeScreen && (
+                        <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                          Active Hero
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-300">
+                      Jab customer website ya app khole ga to sabse upar Home Screen par is product ki photos, pricing aur bundles show hongi.
+                    </p>
+                  </div>
+
+                  {/* Toggle Switch */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setProductForm((prev) => ({
+                        ...prev,
+                        showOnHomeScreen: !prev.showOnHomeScreen,
+                        isHeroProduct: !prev.showOnHomeScreen,
+                      }))
+                    }
+                    className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      productForm.showOnHomeScreen ? 'bg-amber-500' : 'bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                        productForm.showOnHomeScreen ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
                 </div>
               </div>
 

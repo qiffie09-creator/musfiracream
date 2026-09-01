@@ -16,9 +16,13 @@ interface HomePageProps {
 export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentView }) => {
   const { products, openQuickOrder, addToCart, showToast, settings } = useStore();
 
-  // Find primary hero product (Musfira Special Cream) with safe fallback
+  // Find primary hero product (by settings heroProductId, or showOnHomeScreen/isHeroProduct flag, or first product with images)
   const heroProduct =
-    products.find((p) => p.slug === 'musfira-special-cream' || p.isFeatured || p.isBestSeller) ||
+    (settings?.heroProductId ? products.find((p) => p.id === settings.heroProductId) : undefined) ||
+    products.find((p) => p.showOnHomeScreen === true || p.isHeroProduct === true) ||
+    products.find((p) => p.images && p.images.length > 0 && (p.isFeatured || p.isBestSeller)) ||
+    products.find((p) => p.images && p.images.length > 0) ||
+    products.find((p) => p.slug === 'musfira-special-cream') ||
     products[0] ||
     INITIAL_PRODUCTS[0];
 

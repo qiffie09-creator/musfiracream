@@ -160,10 +160,34 @@ interface StoreContextType {
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<Product[]>(() => {
+    try {
+      const saved = localStorage.getItem('musfira_products');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_PRODUCTS;
+  });
+  const [categories, setCategories] = useState<Category[]>(() => {
+    try {
+      const saved = localStorage.getItem('musfira_categories');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [settings, setSettings] = useState<SiteSettings | null>(null);
+  const [settings, setSettings] = useState<SiteSettings | null>(() => {
+    try {
+      const saved = localStorage.getItem('musfira_settings');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  });
   const [isLoading, setIsLoading] = useState(false);
 
   // Cart local state with persistence
@@ -205,15 +229,18 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       ]);
       if (fetchedProducts && fetchedProducts.length > 0) {
         setProducts(fetchedProducts);
+        try { localStorage.setItem('musfira_products', JSON.stringify(fetchedProducts)); } catch {}
       }
       if (fetchedCategories && fetchedCategories.length > 0) {
         setCategories(fetchedCategories);
+        try { localStorage.setItem('musfira_categories', JSON.stringify(fetchedCategories)); } catch {}
       }
       if (fetchedReviews && fetchedReviews.length > 0) {
         setReviews(fetchedReviews);
       }
       if (fetchedSettings) {
         setSettings(fetchedSettings);
+        try { localStorage.setItem('musfira_settings', JSON.stringify(fetchedSettings)); } catch {}
       }
     } catch (err) {
       console.error('Failed to load store data:', err);
@@ -239,6 +266,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               .filter((p) => p.active !== false);
             if (liveProducts.length > 0) {
               setProducts(liveProducts);
+              try { localStorage.setItem('musfira_products', JSON.stringify(liveProducts)); } catch {}
             }
           }
         },
@@ -256,6 +284,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               .filter((c) => c.active !== false);
             if (liveCats.length > 0) {
               setCategories(liveCats);
+              try { localStorage.setItem('musfira_categories', JSON.stringify(liveCats)); } catch {}
             }
           }
         },
@@ -271,6 +300,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             const liveSettings = snapshot.data() as SiteSettings;
             if (liveSettings && liveSettings.brandName) {
               setSettings(liveSettings);
+              try { localStorage.setItem('musfira_settings', JSON.stringify(liveSettings)); } catch {}
             }
           }
         },

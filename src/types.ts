@@ -25,6 +25,8 @@ export interface Product {
   stockStatus: 'in_stock' | 'low_stock' | 'sold_out';
   isFeatured: boolean;
   isBestSeller: boolean;
+  showOnHomeScreen?: boolean;
+  isHeroProduct?: boolean;
   badges?: string[];
   rating: number;
   reviewCount: number;
@@ -104,6 +106,7 @@ export interface SiteSettings {
   brandTagline: string;
   logoUrl: string;
   faviconUrl?: string;
+  heroProductId?: string;
   landingImages?: string[];
   bismillahText: string;
   tickerText: string;
