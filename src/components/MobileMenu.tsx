@@ -100,16 +100,6 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
             <Phone className="w-4 h-4 text-amber-600" />
             <span>Contact & Support (رابطہ)</span>
           </button>
-
-          <div className="pt-4 border-t border-slate-100 my-2">
-            <button
-              onClick={() => handleNav('admin')}
-              className="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100 transition-colors"
-            >
-              <Lock className="w-3.5 h-3.5 text-slate-400" />
-              <span>Admin Dashboard</span>
-            </button>
-          </div>
         </div>
 
         {/* Footer info */}

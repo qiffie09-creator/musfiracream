@@ -1,11 +1,21 @@
 import React, { useState } from 'react';
-import { X, ShoppingBag, User, Phone, MapPin, Building, Check, Sparkles } from 'lucide-react';
+import { X, ShoppingBag, User, Phone, MapPin, Building, Check, Sparkles, Navigation, FileText } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { ProductBundle, Order } from '../types';
 
 interface QuickOrderModalProps {
   onOrderSuccess?: (order: Order) => void;
 }
+
+const PAKISTAN_PROVINCES = [
+  'Punjab (پنجاب)',
+  'Sindh (سندھ)',
+  'Khyber Pakhtunkhwa (خیبر پختونخوا)',
+  'Balochistan (بلوچستان)',
+  'Islamabad Capital Territory (اسلام آباد)',
+  'Azad Jammu & Kashmir (آزاد کشمیر)',
+  'Gilgit-Baltistan (گلگت بلتستان)',
+];
 
 export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({ onOrderSuccess }) => {
   const {
@@ -21,9 +31,13 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({ onOrderSuccess
   );
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [alternatePhone, setAlternatePhone] = useState('');
+  const [province, setProvince] = useState('Punjab (پنجاب)');
+  const [city, setCity] = useState('');
+  const [areaSector, setAreaSector] = useState('');
   const [address, setAddress] = useState('');
   const [nearbyPlace, setNearbyPlace] = useState('');
-  const [city, setCity] = useState('');
+  const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<Order | null>(null);
 
@@ -43,8 +57,8 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({ onOrderSuccess
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !phone.trim() || !city.trim() || !address.trim()) {
-      alert('Please fill all required fields (Name, Phone, Address, City).');
+    if (!name.trim() || !phone.trim() || !city.trim() || !address.trim() || !province.trim()) {
+      alert('Please fill all required fields (Name, Phone, Province, City, and Complete Address).');
       return;
     }
 
@@ -53,9 +67,13 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({ onOrderSuccess
       const newOrder = await placeOrder({
         customerName: name.trim(),
         phone: phone.trim(),
+        alternatePhone: alternatePhone.trim() || undefined,
+        province: province.trim(),
         city: city.trim(),
+        areaSector: areaSector.trim() || undefined,
         address: address.trim(),
-        nearbyFamousPlace: nearbyPlace.trim(),
+        nearbyFamousPlace: nearbyPlace.trim() || undefined,
+        notes: notes.trim() || undefined,
         items: [
           {
             productId: quickOrderProduct.id,
@@ -87,9 +105,13 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({ onOrderSuccess
     setOrderSuccess(null);
     setName('');
     setPhone('');
+    setAlternatePhone('');
+    setProvince('Punjab (پنجاب)');
+    setCity('');
+    setAreaSector('');
     setAddress('');
     setNearbyPlace('');
-    setCity('');
+    setNotes('');
     closeQuickOrder();
   };
 
@@ -99,13 +121,13 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({ onOrderSuccess
       <div className="fixed inset-0" onClick={closeQuickOrder} />
 
       {/* Modal Container */}
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden z-10 animate-fade-in my-6 border border-amber-200">
+      <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden z-10 animate-fade-in my-6 border border-amber-200">
         {/* Header */}
         <div className="p-4 bg-gradient-to-r from-[#fffdf9] via-white to-[#fef8eb] border-b border-amber-100 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Sparkles className="w-4 h-4 text-[#b8860b]" />
             <h2 className="text-sm sm:text-base font-bold text-amber-950">
-              Complete Your Order (Cash on Delivery)
+              Complete Your Order (اپنا آرڈر مکمل کریں)
             </h2>
           </div>
           <button
@@ -145,10 +167,31 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({ onOrderSuccess
                 <span className="text-slate-500">Phone:</span>
                 <span className="font-semibold text-amber-950">{orderSuccess.phone}</span>
               </div>
+              {orderSuccess.alternatePhone && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Alt Phone:</span>
+                  <span className="font-semibold text-amber-950">{orderSuccess.alternatePhone}</span>
+                </div>
+              )}
               <div className="flex justify-between">
-                <span className="text-slate-500">Address:</span>
-                <span className="font-semibold text-amber-950 text-right">{orderSuccess.address}, {orderSuccess.city}</span>
+                <span className="text-slate-500">Destination:</span>
+                <span className="font-semibold text-amber-950 text-right">
+                  {orderSuccess.city}, {orderSuccess.province || ''}
+                </span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Street Address:</span>
+                <span className="font-semibold text-amber-950 text-right max-w-[220px]">
+                  {orderSuccess.address}
+                  {orderSuccess.areaSector ? `, ${orderSuccess.areaSector}` : ''}
+                </span>
+              </div>
+              {orderSuccess.nearbyFamousPlace && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Landmark:</span>
+                  <span className="font-semibold text-amber-950 text-right">{orderSuccess.nearbyFamousPlace}</span>
+                </div>
+              )}
               <div className="flex justify-between border-t border-amber-200/80 pt-2 font-bold text-sm">
                 <span>Total Amount:</span>
                 <span className="text-[#b8860b]">Rs.{orderSuccess.total.toLocaleString()}.00 PKR</span>
@@ -156,7 +199,7 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({ onOrderSuccess
             </div>
 
             <p className="font-urdu text-sm text-amber-950 leading-relaxed text-right bg-amber-50/80 p-3.5 rounded-xl border border-amber-200/80 font-medium" dir="rtl">
-              ✨ آپ کا آرڈر درج ہو چکا ہے۔ ہمارا نمائندہ جلد فون یا واٹس ایپ پر رابطہ کر کے تصدیق کرے گا۔ شکریہ!
+              ✨ آپ کا آرڈر درج ہو چکا ہے۔ ہمارا نمائندہ جلد فون یا واٹس ایپ پر رابطہ کر کے پارسل ڈسپیچ کی تصدیق کرے گا۔ شکریہ!
             </p>
 
             <button
@@ -169,7 +212,7 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({ onOrderSuccess
           </div>
         ) : (
           /* FORM VIEW */
-          <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4">
+          <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 max-h-[82vh] overflow-y-auto">
             {/* Product Item Preview */}
             <div className="flex items-center justify-between pb-3 border-b border-amber-100">
               <div className="flex items-center space-x-3">
@@ -209,21 +252,29 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({ onOrderSuccess
                 <span className="font-semibold text-slate-800">Rs.{currentPrice.toLocaleString()}.00 PKR</span>
               </div>
               <div className="flex justify-between">
-                <span>Shipping</span>
+                <span>Shipping Fee</span>
                 <span className="font-bold text-emerald-700">Free (Pakistan-wide)</span>
               </div>
               <div className="flex justify-between text-sm font-bold text-amber-950 pt-1">
-                <span>Total Payable</span>
+                <span>Total Payable Amount</span>
                 <span className="text-base text-[#b8860b]">Rs.{totalPayable.toLocaleString()}.00 PKR</span>
               </div>
             </div>
 
-            {/* Form Fields */}
+            {/* Form Fields: Comprehensive Pakistan Delivery Details */}
             <div className="space-y-3 pt-1">
+              <div className="bg-amber-50/70 p-2.5 rounded-xl border border-amber-200/80 flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-950 flex items-center">
+                  <MapPin className="w-3.5 h-3.5 text-[#b8860b] mr-1" />
+                  Courier Delivery Address (ڈیلیوری کا تفصیلی پتہ)
+                </span>
+                <span className="text-[10px] text-amber-800 font-medium">All Pakistan Delivery</span>
+              </div>
+
               {/* Name */}
               <div>
                 <label className="block text-xs font-bold text-amber-950 mb-1">
-                  Full Name (نام)*
+                  Full Name (خریدار کا پورا نام)*
                 </label>
                 <div className="flex rounded-xl border border-amber-200 overflow-hidden focus-within:border-[#b8860b] focus-within:ring-2 focus-within:ring-amber-200 bg-white shadow-2xs">
                   <div className="bg-amber-50 px-3 py-2 flex items-center justify-center border-r border-amber-200 text-amber-800">
@@ -232,7 +283,7 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({ onOrderSuccess
                   <input
                     type="text"
                     required
-                    placeholder="Enter your full name"
+                    placeholder="Enter your complete full name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full px-3 py-2 text-xs sm:text-sm bg-white focus:outline-none text-slate-900"
@@ -240,30 +291,98 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({ onOrderSuccess
                 </div>
               </div>
 
-              {/* Phone */}
-              <div>
-                <label className="block text-xs font-bold text-amber-950 mb-1">
-                  Mobile / WhatsApp Number (فون نمبر)*
-                </label>
-                <div className="flex rounded-xl border border-amber-200 overflow-hidden focus-within:border-[#b8860b] focus-within:ring-2 focus-within:ring-amber-200 bg-white shadow-2xs">
-                  <div className="bg-amber-50 px-3 py-2 flex items-center justify-center border-r border-amber-200 text-amber-800">
-                    <Phone className="w-4 h-4" />
+              {/* Phone Numbers Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Primary Phone */}
+                <div>
+                  <label className="block text-xs font-bold text-amber-950 mb-1">
+                    Mobile / WhatsApp # (موبائل نمبر)*
+                  </label>
+                  <div className="flex rounded-xl border border-amber-200 overflow-hidden focus-within:border-[#b8860b] focus-within:ring-2 focus-within:ring-amber-200 bg-white shadow-2xs">
+                    <div className="bg-amber-50 px-3 py-2 flex items-center justify-center border-r border-amber-200 text-amber-800">
+                      <Phone className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="03001234567"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full px-3 py-2 text-xs sm:text-sm bg-white focus:outline-none text-slate-900"
+                    />
                   </div>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="03001234567"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full px-3 py-2 text-xs sm:text-sm bg-white focus:outline-none text-slate-900"
-                  />
+                </div>
+
+                {/* Alternate Phone */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Alternate Phone (دوسرا فون نمبر - اختیاری)
+                  </label>
+                  <div className="flex rounded-xl border border-amber-200 overflow-hidden focus-within:border-[#b8860b] focus-within:ring-2 focus-within:ring-amber-200 bg-white shadow-2xs">
+                    <div className="bg-amber-50 px-3 py-2 flex items-center justify-center border-r border-amber-200 text-amber-800">
+                      <Phone className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="tel"
+                      placeholder="03211234567 (optional)"
+                      value={alternatePhone}
+                      onChange={(e) => setAlternatePhone(e.target.value)}
+                      className="w-full px-3 py-2 text-xs sm:text-sm bg-white focus:outline-none text-slate-900"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Address */}
+              {/* Province & City Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Province Dropdown */}
+                <div>
+                  <label className="block text-xs font-bold text-amber-950 mb-1">
+                    Province / Region (صوبہ)*
+                  </label>
+                  <div className="flex rounded-xl border border-amber-200 overflow-hidden focus-within:border-[#b8860b] focus-within:ring-2 focus-within:ring-amber-200 bg-white shadow-2xs">
+                    <div className="bg-amber-50 px-3 py-2 flex items-center justify-center border-r border-amber-200 text-amber-800">
+                      <Navigation className="w-4 h-4" />
+                    </div>
+                    <select
+                      value={province}
+                      onChange={(e) => setProvince(e.target.value)}
+                      className="w-full px-3 py-2 text-xs sm:text-sm bg-white focus:outline-none text-slate-900 cursor-pointer"
+                    >
+                      {PAKISTAN_PROVINCES.map((prov) => (
+                        <option key={prov} value={prov}>
+                          {prov}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* City */}
+                <div>
+                  <label className="block text-xs font-bold text-amber-950 mb-1">
+                    City / Town (شہر کا نام)*
+                  </label>
+                  <div className="flex rounded-xl border border-amber-200 overflow-hidden focus-within:border-[#b8860b] focus-within:ring-2 focus-within:ring-amber-200 bg-white shadow-2xs">
+                    <div className="bg-amber-50 px-3 py-2 flex items-center justify-center border-r border-amber-200 text-amber-800">
+                      <Building className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Lahore, Karachi, Rawalpindi"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      className="w-full px-3 py-2 text-xs sm:text-sm bg-white focus:outline-none text-slate-900"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Area / Sector / Colony */}
               <div>
                 <label className="block text-xs font-bold text-amber-950 mb-1">
-                  Complete Delivery Address (مکمل پتہ)*
+                  Sector / Colony / Mohallah (علاقہ / سیکٹر / فیز / محلہ)
                 </label>
                 <div className="flex rounded-xl border border-amber-200 overflow-hidden focus-within:border-[#b8860b] focus-within:ring-2 focus-within:ring-amber-200 bg-white shadow-2xs">
                   <div className="bg-amber-50 px-3 py-2 flex items-center justify-center border-r border-amber-200 text-amber-800">
@@ -271,19 +390,18 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({ onOrderSuccess
                   </div>
                   <input
                     type="text"
-                    required
-                    placeholder="House / Flat #, Street #, Area"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="e.g. DHA Phase 5, Gulshan Block 13, Satellite Town"
+                    value={areaSector}
+                    onChange={(e) => setAreaSector(e.target.value)}
                     className="w-full px-3 py-2 text-xs sm:text-sm bg-white focus:outline-none text-slate-900"
                   />
                 </div>
               </div>
 
-              {/* Nearby Famous Place */}
+              {/* Complete Street / House Address */}
               <div>
                 <label className="block text-xs font-bold text-amber-950 mb-1">
-                  Nearby Landmark / Famous Place (مشہور جگہ)
+                  House / Flat #, Street # / Road (مکمل گلی اور مکان کا پتہ)*
                 </label>
                 <div className="flex rounded-xl border border-amber-200 overflow-hidden focus-within:border-[#b8860b] focus-within:ring-2 focus-within:ring-amber-200 bg-white shadow-2xs">
                   <div className="bg-amber-50 px-3 py-2 flex items-center justify-center border-r border-amber-200 text-amber-800">
@@ -291,7 +409,27 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({ onOrderSuccess
                   </div>
                   <input
                     type="text"
-                    placeholder="e.g. Near Main Mosque / Hospital"
+                    required
+                    placeholder="House / Plot / Flat #, Street # / Lane #"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="w-full px-3 py-2 text-xs sm:text-sm bg-white focus:outline-none text-slate-900"
+                  />
+                </div>
+              </div>
+
+              {/* Nearby Famous Place / Landmark */}
+              <div>
+                <label className="block text-xs font-bold text-amber-950 mb-1">
+                  Nearby Famous Place / Landmark (مشہور قریبی نشان یا جگہ)*
+                </label>
+                <div className="flex rounded-xl border border-amber-200 overflow-hidden focus-within:border-[#b8860b] focus-within:ring-2 focus-within:ring-amber-200 bg-white shadow-2xs">
+                  <div className="bg-amber-50 px-3 py-2 flex items-center justify-center border-r border-amber-200 text-amber-800">
+                    <Navigation className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="e.g. Near Bilal Masjid, Opposite Civil Hospital, Behind Shell Pump"
                     value={nearbyPlace}
                     onChange={(e) => setNearbyPlace(e.target.value)}
                     className="w-full px-3 py-2 text-xs sm:text-sm bg-white focus:outline-none text-slate-900"
@@ -299,37 +437,37 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({ onOrderSuccess
                 </div>
               </div>
 
-              {/* City */}
+              {/* Delivery Instructions / Notes */}
               <div>
-                <label className="block text-xs font-bold text-amber-950 mb-1">
-                  City (شہر کا نام)*
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Delivery Instructions / Notes (ڈیلیوری کے متعلق خاص ہدایات - اختیاری)
                 </label>
                 <div className="flex rounded-xl border border-amber-200 overflow-hidden focus-within:border-[#b8860b] focus-within:ring-2 focus-within:ring-amber-200 bg-white shadow-2xs">
                   <div className="bg-amber-50 px-3 py-2 flex items-center justify-center border-r border-amber-200 text-amber-800">
-                    <MapPin className="w-4 h-4" />
+                    <FileText className="w-4 h-4" />
                   </div>
                   <input
                     type="text"
-                    required
-                    placeholder="e.g. Lahore, Karachi, Rawalpindi"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="e.g. Call before delivery, deliver in afternoon"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
                     className="w-full px-3 py-2 text-xs sm:text-sm bg-white focus:outline-none text-slate-900"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Bottom Buy Button */}
+            {/* Bottom Order Now Button */}
             <div className="pt-2">
               <button
                 type="submit"
+                id="quick-order-submit-btn"
                 disabled={isSubmitting}
-                className="w-full py-4 bg-gradient-to-r from-[#996515] via-[#d4af37] to-[#b8860b] hover:opacity-95 text-white font-bold text-sm sm:text-base rounded-2xl shadow-gold-md transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50 border border-amber-200 active:scale-[0.99]"
+                className="w-full py-4 bg-gradient-to-r from-[#996515] via-[#d4af37] to-[#b8860b] hover:opacity-95 text-white font-extrabold text-sm sm:text-base rounded-full shadow-gold-pulse animate-luxury-shake transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50 border-2 border-amber-200 active:scale-[0.99]"
               >
                 <ShoppingBag className="w-5 h-5 text-amber-100" />
                 <span>
-                  {isSubmitting ? 'Processing Order...' : `COMPLETE ORDER - Rs.${totalPayable.toLocaleString()}.00 PKR`}
+                  {isSubmitting ? 'Processing Order...' : `ORDER NOW (ابھی آرڈر کریں) • Rs.${totalPayable.toLocaleString()}.00 PKR`}
                 </span>
               </button>
             </div>

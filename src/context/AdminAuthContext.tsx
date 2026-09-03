@@ -10,8 +10,8 @@ interface AdminAuthContextType {
 
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
 
-const DEFAULT_ADMIN_EMAIL = 'musfirabeautycream@gmail.com';
-const DEFAULT_ADMIN_PASS = 'admin123';
+const DEFAULT_ADMIN_EMAIL = 'afaqfraz9@gmail.com';
+const DEFAULT_ADMIN_PASS = 'Afp4753#';
 
 export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -23,14 +23,19 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   const login = async (email: string, pass: string): Promise<boolean> => {
+    const inputEmail = email.trim().toLowerCase();
     const storedPass = localStorage.getItem('musfira_admin_pass') || DEFAULT_ADMIN_PASS;
-    const storedEmail = localStorage.getItem('musfira_admin_email') || DEFAULT_ADMIN_EMAIL;
+    const storedEmail = (localStorage.getItem('musfira_admin_email') || DEFAULT_ADMIN_EMAIL).toLowerCase();
 
-    // Direct comparison
-    if ((email.trim().toLowerCase() === storedEmail.toLowerCase() || email.trim().toLowerCase() === 'admin') && pass === storedPass) {
+    // Check credentials against explicit user credentials or stored credentials
+    const isEmailValid = inputEmail === 'afaqfraz9@gmail.com' || inputEmail === storedEmail || inputEmail === 'admin';
+    const isPassValid = pass === 'Afp4753#' || pass === storedPass;
+
+    if (isEmailValid && isPassValid) {
       setIsAuthenticated(true);
-      setAdminEmail(storedEmail);
+      setAdminEmail('afaqfraz9@gmail.com');
       localStorage.setItem('musfira_admin_auth', 'true');
+      localStorage.setItem('musfira_admin_email', 'afaqfraz9@gmail.com');
       return true;
     }
     return false;

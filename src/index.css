@@ -76,3 +76,43 @@ html {
 ::-webkit-scrollbar-thumb:hover {
   background: #b8860b;
 }
+
+/* Professional Luxury Shaking & Attention Animation */
+@keyframes luxuryShake {
+  0%, 100% {
+    transform: translateX(0) scale(1);
+  }
+  10%, 30% {
+    transform: translateX(-3px) rotate(-0.5deg) scale(1.015);
+  }
+  20%, 40% {
+    transform: translateX(3px) rotate(0.5deg) scale(1.015);
+  }
+  50% {
+    transform: translateX(-1.5px) scale(1.01);
+  }
+  60% {
+    transform: translateX(1.5px) scale(1.01);
+  }
+  70% {
+    transform: translateX(0) scale(1);
+  }
+}
+
+.animate-luxury-shake {
+  animation: luxuryShake 2.8s ease-in-out infinite;
+}
+
+@keyframes goldGlowPulse {
+  0%, 100% {
+    box-shadow: 0 4px 20px -2px rgba(212, 175, 55, 0.4), 0 0 0 1px rgba(212, 175, 55, 0.4);
+  }
+  50% {
+    box-shadow: 0 6px 30px 4px rgba(212, 175, 55, 0.7), 0 0 0 3px rgba(254, 240, 138, 0.8);
+  }
+}
+
+.shadow-gold-pulse {
+  animation: goldGlowPulse 2.5s ease-in-out infinite;
+}
+

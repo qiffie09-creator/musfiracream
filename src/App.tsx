@@ -20,10 +20,44 @@ import { Product, Order } from './types';
 
 const AppContent: React.FC = () => {
   const { isAuthenticated } = useAdminAuth();
-  const [currentPage, setCurrentPage] = useState<string>('home');
+
+  const getInitialPage = () => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      const search = window.location.search.toLowerCase();
+      if (path === '/admin' || path.endsWith('/admin') || hash === '#/admin' || search.includes('admin=true') || search.includes('admin')) {
+        return 'admin';
+      }
+    }
+    return 'home';
+  };
+
+  const [currentPage, setCurrentPage] = useState<string>(getInitialPage);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [lastOrder, setLastOrder] = useState<Order | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Synchronize URL with /admin route
+  React.useEffect(() => {
+    const handleUrlChange = () => {
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      const search = window.location.search.toLowerCase();
+      if (path === '/admin' || path.endsWith('/admin') || hash === '#/admin' || search.includes('admin=true') || search.includes('admin')) {
+        setCurrentPage('admin');
+      } else if (currentPage === 'admin') {
+        setCurrentPage('home');
+      }
+    };
+
+    window.addEventListener('popstate', handleUrlChange);
+    window.addEventListener('hashchange', handleUrlChange);
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange);
+      window.removeEventListener('hashchange', handleUrlChange);
+    };
+  }, [currentPage]);
 
   const handleSelectProduct = (product: Product) => {
     setSelectedProduct(product);
@@ -38,16 +72,39 @@ const AppContent: React.FC = () => {
   };
 
   const handleNavigate = (page: string) => {
+    if (page === 'admin') {
+      if (window.location.pathname !== '/admin') {
+        window.history.pushState({}, '', '/admin');
+      }
+    } else {
+      if (window.location.pathname === '/admin' || window.location.pathname.endsWith('/admin')) {
+        window.history.pushState({}, '', '/');
+      }
+      if (window.location.hash === '#/admin') {
+        window.history.pushState({}, '', '/');
+      }
+    }
     setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBackToStore = () => {
+    if (window.location.pathname === '/admin' || window.location.pathname.endsWith('/admin')) {
+      window.history.pushState({}, '', '/');
+    }
+    if (window.location.hash === '#/admin') {
+      window.history.pushState({}, '', '/');
+    }
+    setCurrentPage('home');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // If in admin mode
   if (currentPage === 'admin') {
     if (isAuthenticated) {
-      return <AdminDashboard onBackToStore={() => handleNavigate('home')} />;
+      return <AdminDashboard onBackToStore={handleBackToStore} />;
     }
-    return <AdminLogin onBackToStore={() => handleNavigate('home')} />;
+    return <AdminLogin onBackToStore={handleBackToStore} />;
   }
 
   return (

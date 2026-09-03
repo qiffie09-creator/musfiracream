@@ -1,6 +1,21 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Product, ProductBundle, Order, StoreSettings, Review, MediaAsset, OrderStatus } from '../types';
 import { BrandAssets } from '../assets/images';
+import {
+  subscribeToOrders,
+  createFirestoreOrder,
+  updateFirestoreOrderStatus,
+  deleteFirestoreOrder,
+  subscribeToProducts,
+  saveFirestoreProduct,
+  deleteFirestoreProduct,
+  seedInitialProductsIfEmpty,
+  subscribeToSettings,
+  saveFirestoreSettings,
+  subscribeToReviews,
+  saveFirestoreReview,
+  deleteFirestoreReview,
+} from '../lib/firestoreService';
 
 export interface CartItem {
   product: Product;
@@ -24,10 +39,12 @@ interface StoreContextType {
   clearCart: () => void;
   cartTotal: number;
   cartCount: number;
+  isLiveBackend: boolean;
   openQuickOrder: (product: Product, bundle?: ProductBundle) => void;
   closeQuickOrder: () => void;
   placeOrder: (orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt' | 'status'>) => Promise<Order>;
   updateOrderStatus: (orderId: string, status: OrderStatus, trackingNumber?: string, courierName?: string) => void;
+  deleteOrder: (orderId: string) => void;
   updateSettings: (newSettings: Partial<StoreSettings>) => void;
   updateProduct: (updatedProduct: Product) => void;
   addProduct: (newProduct: Omit<Product, 'id'>) => void;
@@ -40,21 +57,21 @@ interface StoreContextType {
 
 export const defaultProducts: Product[] = [
   {
-    id: 'prod_wiki_cream',
-    name: 'Wiki Special Cream',
-    urduName: 'وکی اسپیشل بیوٹی کریم',
-    slug: 'wiki-special-cream',
+    id: 'prod_musfira_cream',
+    name: 'Musfira Beauty Cream',
+    urduName: 'مسفرا بیوٹی کریم',
+    slug: 'musfira-beauty-cream',
     category: 'Beauty Cream',
     price: 1499,
     originalPrice: 1499,
     stockStatus: 'in_stock',
     rating: 5.0,
     reviewCount: 5,
-    images: [BrandAssets.wikiCreamMain, BrandAssets.beforeAfter1, BrandAssets.beforeAfter2],
+    images: [BrandAssets.musfiraCreamMain, BrandAssets.beforeAfter1, BrandAssets.beforeAfter2],
     description:
-      'Wiki Special Skincare Beauty Cream is formulated with powerful herbal and dermatologist-tested ingredients to visibly reduce dark spots, pigmentation, freckles, and acne marks within 7 days.',
+      'Musfira Beauty Cream is formulated with powerful herbal and dermatologist-tested ingredients to visibly reduce dark spots, pigmentation, freckles, and acne marks within 7 days.',
     urduDescription:
-      'وکی اسپیشل بیوٹی کریم چہرے کی جھائیوں، دانوں، داغ دھبوں اور بے رونق جلد کو صاف اور شفاف بنانے کے لیے 100٪ مؤثر اور محفوظ فارمولا ہے۔',
+      'مسفرا بیوٹی کریم چہرے کی جھائیوں، دانوں، داغ دھبوں اور بے رونق جلد کو صاف اور شفاف بنانے کے لیے 100٪ مؤثر اور محفوظ فارمولا ہے۔',
     shortDescription: 'One Sold Every Minute. 100% Steroid-Free herbal formula with rapid visible results.',
     isFeatured: true,
     benefits: [
@@ -119,10 +136,10 @@ export const defaultProducts: Product[] = [
     ],
   },
   {
-    id: 'prod_wiki_polish',
-    name: 'Wiki Special Skin Polish',
-    urduName: 'وکی اسپیشل اسکن پالش',
-    slug: 'wiki-special-skin-polish',
+    id: 'prod_musfira_polish',
+    name: 'Musfira Skin Polish',
+    urduName: 'مسفرا اسکن پالش',
+    slug: 'musfira-skin-polish',
     category: 'Skin Polish',
     price: 1999,
     originalPrice: 3000,
@@ -130,8 +147,8 @@ export const defaultProducts: Product[] = [
     rating: 0,
     reviewCount: 0,
     images: [BrandAssets.wikiSkinPolish],
-    description: 'Wiki Special 20v Ultra Whitening Skin Polish and 24k Gold Brightener dual step skincare system.',
-    urduDescription: 'وکی اسپیشل اسکن پالش فوری سیلون جیسا گلو اور نکھار فراہم کرتی ہے۔',
+    description: 'Musfira 20v Ultra Whitening Skin Polish and 24k Gold Brightener dual step skincare system.',
+    urduDescription: 'مسفرا اسکن پالش فوری سیلون جیسا گلو اور نکھار فراہم کرتی ہے۔',
     shortDescription: 'Ultra Whitening Skin Polish & 24k Gold Brightener.',
     isFeatured: true,
     benefits: ['Instant salon glow', 'Removes dead skin', 'Deep cleanses pores'],
@@ -139,10 +156,10 @@ export const defaultProducts: Product[] = [
     howToUse: ['Mix developer and polish powder, apply for 10-15 minutes, rinse.'],
   },
   {
-    id: 'prod_wiki_hair_blocker',
-    name: 'Wiki Special Hair Blocker',
-    urduName: 'وکی اسپیشل ہیئر بلاکر کریم',
-    slug: 'wiki-special-hair-blocker',
+    id: 'prod_musfira_hair_blocker',
+    name: 'Musfira Hair Blocker',
+    urduName: 'مسفرا ہیئر بلاکر کریم',
+    slug: 'musfira-hair-blocker',
     category: 'Hair Removal & Blocker',
     price: 1499,
     originalPrice: 1499,
@@ -158,10 +175,10 @@ export const defaultProducts: Product[] = [
     howToUse: ['Apply daily on cleansed areas after hair removal.'],
   },
   {
-    id: 'prod_wiki_face_wash',
-    name: 'Wiki Special Face Wash',
-    urduName: 'وکی اسپیشل فیس واش',
-    slug: 'wiki-special-face-wash',
+    id: 'prod_musfira_face_wash',
+    name: 'Musfira Face Wash',
+    urduName: 'مسفرا فیس واش',
+    slug: 'musfira-face-wash',
     category: 'Face Wash',
     price: 1299,
     originalPrice: 1299,
@@ -177,10 +194,10 @@ export const defaultProducts: Product[] = [
     howToUse: ['Pump small amount, lather on wet face, wash with lukewarm water.'],
   },
   {
-    id: 'prod_wiki_brightening_serum',
-    name: 'Wiki Special Skin Brightening Serum',
-    urduName: 'وکی اسپیشل اسکن برائٹننگ سیرم',
-    slug: 'wiki-special-skin-brightening-serum',
+    id: 'prod_musfira_brightening_serum',
+    name: 'Musfira Skin Brightening Serum',
+    urduName: 'مسفرا اسکن برائٹننگ سیرم',
+    slug: 'musfira-skin-brightening-serum',
     category: 'Serum',
     price: 1999,
     originalPrice: 3000,
@@ -196,10 +213,10 @@ export const defaultProducts: Product[] = [
     howToUse: ['Apply 2-3 drops before moisturising.'],
   },
   {
-    id: 'prod_wiki_rose_water',
-    name: 'Wiki Special Rose Water',
-    urduName: 'وکی اسپیشل روز واٹر اسپرے',
-    slug: 'wiki-special-rose-water',
+    id: 'prod_musfira_rose_water',
+    name: 'Musfira Rose Water',
+    urduName: 'مسفرا روز واٹر اسپرے',
+    slug: 'musfira-rose-water',
     category: 'Toner',
     price: 850,
     originalPrice: 1200,
@@ -215,10 +232,10 @@ export const defaultProducts: Product[] = [
     howToUse: ['Spray generously on face anytime during the day.'],
   },
   {
-    id: 'prod_wiki_lip_balm',
-    name: 'Wiki Special Lip Balm',
-    urduName: 'وکی اسپیشل لپ بام',
-    slug: 'wiki-special-lip-balm',
+    id: 'prod_musfira_lip_balm',
+    name: 'Musfira Lip Balm',
+    urduName: 'مسفرا لپ بام',
+    slug: 'musfira-lip-balm',
     category: 'Lip Care',
     price: 1500,
     originalPrice: 2000,
@@ -234,10 +251,10 @@ export const defaultProducts: Product[] = [
     howToUse: ['Apply directly to lips whenever needed.'],
   },
   {
-    id: 'prod_wiki_acne_serum',
-    name: 'Wiki Special Acne Serum',
-    urduName: 'وکی اسپیشل اینٹی ایکنی سیرم',
-    slug: 'wiki-special-acne-serum',
+    id: 'prod_musfira_acne_serum',
+    name: 'Musfira Acne Serum',
+    urduName: 'مسفرا اینٹی ایکنی سیرم',
+    slug: 'musfira-acne-serum',
     category: 'Serum',
     price: 2000,
     originalPrice: 3000,
@@ -263,7 +280,7 @@ export const defaultReviews: Review[] = [
     rating: 5,
     date: '06/23/2026',
     verified: true,
-    comment: 'Boht farq parha Allah Kush rakhay app ko 🥺',
+    comment: 'Boht farq parha Musfira Cream se, Allah khush rakhay aap ko 🥺',
     beforeAfterImage: BrandAssets.beforeAfter1,
   },
   {
@@ -274,17 +291,18 @@ export const defaultReviews: Review[] = [
     rating: 5,
     date: '06/23/2026',
     verified: true,
+    comment: 'Original Musfira cream delivery was very fast. Skin is glowing!',
     beforeAfterImage: BrandAssets.beforeAfter2,
   },
   {
     id: 'rev_3',
-    author: 'laiba',
+    author: 'Laiba',
     initials: 'L',
     city: 'Rawalpindi',
     rating: 5,
     date: '06/23/2026',
     verified: true,
-    comment: 'bht achi cream meri skin kafi glow kr rhi ab',
+    comment: 'Bht achi cream meri skin kafi glow kr rhi ab. 100% recommended.',
     beforeAfterImage: BrandAssets.beforeAfter1,
   },
   {
@@ -295,7 +313,7 @@ export const defaultReviews: Review[] = [
     rating: 5,
     date: '06/21/2026',
     verified: true,
-    comment: 'It works! excellent!',
+    comment: 'Ordered for my wife, freckles are almost gone in 1 week. Excellent!',
   },
   {
     id: 'rev_5',
@@ -305,22 +323,22 @@ export const defaultReviews: Review[] = [
     rating: 5,
     date: '06/21/2026',
     verified: true,
-    comment: 'Bht achi cream ha.',
+    comment: 'Bht achi Musfira cream ha results are real.',
   },
 ];
 
 const defaultSettings: StoreSettings = {
-  storeName: 'Wiki Special',
+  storeName: 'Musfira Beauty Cream',
   phone: '0300-1234567',
   whatsappNumber: '923001234567',
-  email: 'wikispecial@gmail.com',
+  email: 'musfirabeautycream@gmail.com',
   deliveryFee: 0,
   freeDeliveryThreshold: 0,
   announcementText: 'Free shipping all over Pakistan',
   announcementUrdu: 'پورے پاکستان میں فری کیش آن ڈیلیوری کی سہولت دستیاب ہے',
-  landingImages: [BrandAssets.wikiCreamMain],
-  heroHeadline: 'Wiki Special Cream',
-  heroHeadlineUrdu: 'وکی اسپیشل بیوٹی کریم',
+  landingImages: [BrandAssets.musfiraCreamMain],
+  heroHeadline: 'Musfira Beauty Cream',
+  heroHeadlineUrdu: 'مسفرا بیوٹی کریم',
   heroSubheadline: '100% Herbal & Steroid-Free Skincare Formula',
   heroSubheadlineUrdu: 'صرف 7 دنوں میں داغ دھبوں اور جھائیوں کا خاتمہ',
   guaranteeDays: 7,
@@ -331,12 +349,29 @@ const defaultSettings: StoreSettings = {
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const sanitizeProduct = (p: Product): Product => {
+    let name = p.name.replace(/Wiki Special/gi, 'Musfira').replace(/Wiki/gi, 'Musfira');
+    let urduName = p.urduName ? p.urduName.replace(/وکی اسپیشل/g, 'مسفرا').replace(/وکی/g, 'مسفرا') : 'مسفرا بیوٹی کریم';
+    let description = p.description.replace(/Wiki Special/gi, 'Musfira').replace(/Wiki/gi, 'Musfira');
+    let urduDescription = p.urduDescription ? p.urduDescription.replace(/وکی اسپیشل/g, 'مسفرا').replace(/وکی/g, 'مسفرا') : '';
+    return {
+      ...p,
+      name,
+      urduName,
+      description,
+      urduDescription,
+      images: p.images && p.images.length > 0 ? p.images : [BrandAssets.musfiraCreamMain],
+    };
+  };
+
   const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('wiki_products_v2');
+    const saved = localStorage.getItem('musfira_products_v3') || localStorage.getItem('wiki_products_v2');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(sanitizeProduct);
+        }
       } catch (e) {
         console.error(e);
       }
@@ -345,10 +380,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   const [settings, setSettings] = useState<StoreSettings>(() => {
-    const saved = localStorage.getItem('wiki_settings_v2');
+    const saved = localStorage.getItem('musfira_settings_v3') || localStorage.getItem('wiki_settings_v2');
     if (saved) {
       try {
-        return { ...defaultSettings, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        return {
+          ...defaultSettings,
+          ...parsed,
+          storeName: 'Musfira Beauty Cream',
+          heroHeadline: 'Musfira Beauty Cream',
+          heroHeadlineUrdu: 'مسفرا بیوٹی کریم',
+        };
       } catch (e) {
         console.error(e);
       }
@@ -357,7 +399,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem('wiki_orders_v2');
+    const saved = localStorage.getItem('musfira_orders_v3') || localStorage.getItem('wiki_orders_v2');
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -369,10 +411,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   const [reviews, setReviews] = useState<Review[]>(() => {
-    const saved = localStorage.getItem('wiki_reviews_v2');
+    const saved = localStorage.getItem('musfira_reviews_v3') || localStorage.getItem('wiki_reviews_v2');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((r: Review) => ({
+            ...r,
+            comment: r.comment ? r.comment.replace(/Wiki/gi, 'Musfira') : r.comment,
+          }));
+        }
       } catch (e) {
         console.error(e);
       }
@@ -381,11 +429,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   const [media, setMedia] = useState<MediaAsset[]>([
-    { id: 'm1', name: 'Wiki Special Cream', url: BrandAssets.wikiCreamMain, category: 'products', uploadedAt: new Date().toISOString() },
+    { id: 'm1', name: 'Musfira Beauty Cream', url: BrandAssets.musfiraCreamMain, category: 'products', uploadedAt: new Date().toISOString() },
   ]);
 
   const [cart, setCart] = useState<CartItem[]>(() => {
-    const saved = localStorage.getItem('wiki_cart_v2');
+    const saved = localStorage.getItem('musfira_cart_v3') || localStorage.getItem('wiki_cart_v2');
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -405,25 +453,76 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [quickOrderProduct, setQuickOrderProduct] = useState<Product | null>(null);
   const [quickOrderBundle, setQuickOrderBundle] = useState<ProductBundle | null>(null);
 
-  // Sync state to local storage
+  // Firestore live subscriptions
+  const [isLiveBackend, setIsLiveBackend] = useState<boolean>(true);
+
   useEffect(() => {
-    localStorage.setItem('wiki_products_v2', JSON.stringify(products));
+    // Seed default products to Firestore if empty
+    seedInitialProductsIfEmpty(defaultProducts);
+
+    // Live Orders Listener
+    const unsubOrders = subscribeToOrders((liveOrders) => {
+      setOrders(liveOrders);
+      setIsLiveBackend(true);
+    });
+
+    // Live Products Listener
+    const unsubProducts = subscribeToProducts((liveProducts) => {
+      if (liveProducts.length > 0) {
+        setProducts(liveProducts.map(sanitizeProduct));
+      }
+    });
+
+    // Live Settings Listener
+    const unsubSettings = subscribeToSettings((liveSettings) => {
+      setSettings((prev) => ({
+        ...prev,
+        ...liveSettings,
+        storeName: 'Musfira Beauty Cream',
+        heroHeadline: 'Musfira Beauty Cream',
+        heroHeadlineUrdu: 'مسفرا بیوٹی کریم',
+      }));
+    });
+
+    // Live Reviews Listener
+    const unsubReviews = subscribeToReviews((liveReviews) => {
+      if (liveReviews.length > 0) {
+        setReviews(
+          liveReviews.map((r) => ({
+            ...r,
+            comment: r.comment ? r.comment.replace(/Wiki/gi, 'Musfira') : r.comment,
+          }))
+        );
+      }
+    });
+
+    return () => {
+      unsubOrders();
+      unsubProducts();
+      unsubSettings();
+      unsubReviews();
+    };
+  }, []);
+
+  // Sync state to local storage backup
+  useEffect(() => {
+    localStorage.setItem('musfira_products_v3', JSON.stringify(products));
   }, [products]);
 
   useEffect(() => {
-    localStorage.setItem('wiki_settings_v2', JSON.stringify(settings));
+    localStorage.setItem('musfira_settings_v3', JSON.stringify(settings));
   }, [settings]);
 
   useEffect(() => {
-    localStorage.setItem('wiki_orders_v2', JSON.stringify(orders));
+    localStorage.setItem('musfira_orders_v3', JSON.stringify(orders));
   }, [orders]);
 
   useEffect(() => {
-    localStorage.setItem('wiki_reviews_v2', JSON.stringify(reviews));
+    localStorage.setItem('musfira_reviews_v3', JSON.stringify(reviews));
   }, [reviews]);
 
   useEffect(() => {
-    localStorage.setItem('wiki_cart_v2', JSON.stringify(cart));
+    localStorage.setItem('musfira_cart_v3', JSON.stringify(cart));
   }, [cart]);
 
   // Cart operations
@@ -486,67 +585,72 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setQuickOrderBundle(null);
   };
 
-  // Place Order
+  // Place Order - saved to live Firestore & state
   const placeOrder = async (
     orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt' | 'status'>
   ): Promise<Order> => {
-    const timestamp = Date.now();
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    const orderNumber = `WIKI-${randomSuffix}`;
-
-    const newOrder: Order = {
-      ...orderData,
-      id: `ord_${timestamp}`,
-      orderNumber,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    setOrders((prev) => [newOrder, ...prev]);
+    const newOrder = await createFirestoreOrder(orderData);
+    setOrders((prev) => {
+      const exists = prev.some((o) => o.id === newOrder.id);
+      return exists ? prev : [newOrder, ...prev];
+    });
     return newOrder;
   };
 
-  const updateOrderStatus = (
+  const updateOrderStatus = async (
     orderId: string,
     status: OrderStatus,
     trackingNumber?: string,
     courierName?: string
   ) => {
+    // Update locally immediately
     setOrders((prev) =>
       prev.map((ord) => {
         if (ord.id === orderId) {
           return {
             ...ord,
             status,
-            trackingNumber: trackingNumber || ord.trackingNumber,
-            courierName: courierName || ord.courierName,
+            trackingNumber: trackingNumber !== undefined ? trackingNumber : ord.trackingNumber,
+            courierName: courierName !== undefined ? courierName : ord.courierName,
             updatedAt: new Date().toISOString(),
           };
         }
         return ord;
       })
     );
+    // Sync to Firestore
+    await updateFirestoreOrderStatus(orderId, status, trackingNumber, courierName);
   };
 
-  const updateSettings = (newSettings: Partial<StoreSettings>) => {
-    setSettings((prev) => ({ ...prev, ...newSettings }));
+  const deleteOrder = async (orderId: string) => {
+    setOrders((prev) => prev.filter((ord) => ord.id !== orderId));
+    await deleteFirestoreOrder(orderId);
   };
 
-  const updateProduct = (updatedProduct: Product) => {
+  const updateSettings = async (newSettings: Partial<StoreSettings>) => {
+    const merged = { ...settings, ...newSettings };
+    setSettings(merged);
+    await saveFirestoreSettings(merged);
+  };
+
+  const updateProduct = async (updatedProduct: Product) => {
     setProducts((prev) => prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p)));
+    await saveFirestoreProduct(updatedProduct);
   };
 
-  const addProduct = (newProduct: Omit<Product, 'id'>) => {
+  const addProduct = async (newProduct: Omit<Product, 'id'>) => {
     const id = `prod_${Date.now()}`;
-    setProducts((prev) => [{ ...newProduct, id }, ...prev]);
+    const productWithId: Product = { ...newProduct, id };
+    setProducts((prev) => [productWithId, ...prev]);
+    await saveFirestoreProduct(productWithId);
   };
 
-  const deleteProduct = (id: string) => {
+  const deleteProduct = async (id: string) => {
     setProducts((prev) => prev.filter((p) => p.id !== id));
+    await deleteFirestoreProduct(id);
   };
 
-  const addReview = (review: Omit<Review, 'id' | 'date' | 'verified'>) => {
+  const addReview = async (review: Omit<Review, 'id' | 'date' | 'verified'>) => {
     const newRev: Review = {
       ...review,
       id: `rev_${Date.now()}`,
@@ -554,10 +658,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       verified: true,
     };
     setReviews((prev) => [newRev, ...prev]);
+    await saveFirestoreReview(newRev);
   };
 
-  const deleteReview = (id: string) => {
+  const deleteReview = async (id: string) => {
     setReviews((prev) => prev.filter((r) => r.id !== id));
+    await deleteFirestoreReview(id);
   };
 
   const addMedia = (asset: Omit<MediaAsset, 'id' | 'uploadedAt'>) => {
@@ -591,10 +697,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         clearCart,
         cartTotal,
         cartCount,
+        isLiveBackend,
         openQuickOrder,
         closeQuickOrder,
         placeOrder,
         updateOrderStatus,
+        deleteOrder,
         updateSettings,
         updateProduct,
         addProduct,

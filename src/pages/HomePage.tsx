@@ -15,25 +15,32 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentP
   const { products, openQuickOrder } = useStore();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // Main product is Musfira Special Cream
-  const mainProduct = products.find((p) => p.id === 'prod_wiki_cream') || products[0];
+  // Main product is Musfira Beauty Cream
+  const mainProduct =
+    products.find(
+      (p) => p.id === 'prod_musfira_cream' || p.id === 'prod_wiki_cream' || p.slug?.includes('musfira')
+    ) || products[0];
 
   const [selectedBundle, setSelectedBundle] = useState<ProductBundle | undefined>(
-    mainProduct.bundles?.find((b) => b.isDefault) || mainProduct.bundles?.[1] || mainProduct.bundles?.[0]
+    mainProduct?.bundles?.find((b) => b.isDefault) || mainProduct?.bundles?.[1] || mainProduct?.bundles?.[0]
   );
 
-  const images = mainProduct.images || [];
+  const images = mainProduct?.images && mainProduct.images.length > 0 ? mainProduct.images : [];
 
   const handleNextImage = () => {
+    if (images.length === 0) return;
     setCurrentImageIndex((prev) => (prev + 1) % images.length);
   };
 
   const handlePrevImage = () => {
+    if (images.length === 0) return;
     setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
   };
 
   const handleOrderNow = () => {
-    openQuickOrder(mainProduct, selectedBundle);
+    if (mainProduct) {
+      openQuickOrder(mainProduct, selectedBundle);
+    }
   };
 
   const handleShare = () => {
@@ -92,7 +99,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentP
           <img
             src={images[currentImageIndex]}
             alt={mainProduct.name}
-            className="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-105"
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             referrerPolicy="no-referrer"
           />
 
@@ -146,7 +153,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentP
             <p className="text-xs text-slate-500 mt-1 flex items-center space-x-1">
               <span className="text-emerald-700 font-semibold">Free Delivery Across Pakistan</span>
               <span>•</span>
-              <span>Cash on Delivery</span>
+              <span className="text-amber-800 font-medium">100% Original Musfira</span>
             </p>
           </div>
         </div>
@@ -218,17 +225,26 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentP
           </div>
         )}
 
-        {/* In-Page Action Button in Metallic Gold Gradient */}
+        {/* In-Page Action Button in Metallic Gold Gradient with Luxury Shake */}
         <div className="pt-2">
           <button
             id="home-order-now-btn"
             type="button"
             onClick={handleOrderNow}
-            className="w-full py-4 bg-gradient-to-r from-[#996515] via-[#d4af37] to-[#b8860b] hover:opacity-95 text-white font-bold text-sm sm:text-base rounded-full shadow-gold-md transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-[0.99] border border-amber-200"
+            className="w-full py-4 px-6 bg-gradient-to-r from-[#996515] via-[#d4af37] to-[#b8860b] hover:opacity-95 text-white font-extrabold text-sm sm:text-base rounded-full shadow-gold-pulse animate-luxury-shake transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-[0.99] border-2 border-amber-200"
           >
-            <ShoppingBag className="w-5 h-5 text-amber-100" />
-            <span className="tracking-wide">Order Now | Cash on Delivery - Free Shipping</span>
+            <ShoppingBag className="w-5 h-5 text-amber-100 shrink-0" />
+            <span className="tracking-wide">
+              ORDER NOW (ابھی آرڈر کریں) • Rs.{currentPrice.toLocaleString()}.00 PKR
+            </span>
           </button>
+          <div className="flex items-center justify-between text-[11px] text-amber-900/80 px-2 pt-2">
+            <span className="flex items-center">
+              <Sparkles className="w-3.5 h-3.5 text-amber-600 mr-1" />
+              100% Herbal & Steroid-Free
+            </span>
+            <span className="text-emerald-700 font-bold">● In Stock - Dispatched Today</span>
+          </div>
         </div>
 
         {/* Share Button */}
@@ -254,6 +270,43 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentP
 
       {/* Reviews Section */}
       <ReviewsSection />
+
+      {/* Dedicated Pre-Footer Shaking Order Card for Homepage Product */}
+      <div className="max-w-xl mx-auto px-4 pt-6">
+        <div className="p-5 rounded-3xl bg-gradient-to-b from-[#fffdf9] to-[#fef8eb] border-2 border-amber-300 shadow-gold-sm space-y-3.5 text-center">
+          <div className="flex items-center justify-center space-x-2 text-[#b8860b] text-xs font-bold uppercase tracking-wider">
+            <Sparkles className="w-4 h-4" />
+            <span>Official Musfira Guarantee</span>
+            <Sparkles className="w-4 h-4" />
+          </div>
+
+          <h3 className="font-serif font-bold text-lg sm:text-xl text-amber-950">
+            Get 100% Original Musfira Beauty Cream
+          </h3>
+
+          <p className="font-urdu text-sm text-amber-900 font-semibold">
+            صرف 7 دنوں میں داغ، دھبے اور جھائیاں ختم کریں۔ پورے پاکستان میں مفت ڈلیوری!
+          </p>
+
+          <div className="flex items-center justify-center space-x-3 text-sm">
+            <span className="text-slate-400 line-through">
+              Rs. {mainProduct ? (mainProduct.originalPrice || 2200).toLocaleString() : '2,200'}
+            </span>
+            <span className="text-xl sm:text-2xl font-black text-[#b8860b]">
+              Rs. {currentPrice.toLocaleString()}.00 PKR
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleOrderNow}
+            className="w-full py-4 bg-gradient-to-r from-[#996515] via-[#d4af37] to-[#b8860b] text-white font-black text-sm sm:text-base rounded-full shadow-gold-pulse animate-luxury-shake hover:opacity-95 transition-all flex items-center justify-center space-x-2 border-2 border-amber-200 cursor-pointer"
+          >
+            <ShoppingBag className="w-5 h-5 text-amber-100" />
+            <span>ORDER NOW (ابھی آرڈر کریں)</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

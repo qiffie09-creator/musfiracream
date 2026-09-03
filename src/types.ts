@@ -68,6 +68,8 @@ export interface Order {
   phone: string;
   alternatePhone?: string;
   address: string;
+  areaSector?: string;
+  province?: string;
   nearbyFamousPlace?: string;
   city: string;
   notes?: string;

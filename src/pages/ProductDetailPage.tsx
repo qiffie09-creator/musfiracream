@@ -182,10 +182,10 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           <button
             type="button"
             onClick={handleOrderNow}
-            className="w-full py-4 bg-gradient-to-r from-[#996515] via-[#d4af37] to-[#b8860b] hover:opacity-95 text-white font-bold text-sm sm:text-base rounded-2xl shadow-gold-md transition-all flex items-center justify-center space-x-2 cursor-pointer border border-amber-200 active:scale-[0.99]"
+            className="w-full py-4 bg-gradient-to-r from-[#996515] via-[#d4af37] to-[#b8860b] hover:opacity-95 text-white font-extrabold text-sm sm:text-base rounded-full shadow-gold-pulse animate-luxury-shake transition-all flex items-center justify-center space-x-2 cursor-pointer border-2 border-amber-200 active:scale-[0.99]"
           >
             <ShoppingBag className="w-5 h-5 text-amber-100" />
-            <span>ORDER NOW - FREE CASH ON DELIVERY</span>
+            <span>ORDER NOW (ابھی آرڈر کریں) • FREE CASH ON DELIVERY</span>
           </button>
         </div>
       </div>

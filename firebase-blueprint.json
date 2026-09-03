@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "1.0.0",
+  "entities": {
+    "orders": {
+      "collection": "orders",
+      "description": "Customer purchase orders for Cash on Delivery and direct payments",
+      "fields": {
+        "orderNumber": { "type": "string", "required": true },
+        "customerName": { "type": "string", "required": true },
+        "phone": { "type": "string", "required": true },
+        "alternatePhone": { "type": "string", "required": false },
+        "address": { "type": "string", "required": true },
+        "nearbyFamousPlace": { "type": "string", "required": false },
+        "city": { "type": "string", "required": true },
+        "notes": { "type": "string", "required": false },
+        "items": { "type": "array", "required": true },
+        "subtotal": { "type": "number", "required": true },
+        "deliveryCharges": { "type": "number", "required": true },
+        "total": { "type": "number", "required": true },
+        "status": { "type": "string", "required": true },
+        "trackingNumber": { "type": "string", "required": false },
+        "courierName": { "type": "string", "required": false },
+        "paymentMethod": { "type": "string", "required": true },
+        "createdAt": { "type": "string", "required": true },
+        "updatedAt": { "type": "string", "required": true }
+      }
+    },
+    "products": {
+      "collection": "products",
+      "description": "Store products catalog with pricing, stock status, and bundles",
+      "fields": {
+        "name": { "type": "string", "required": true },
+        "urduName": { "type": "string", "required": false },
+        "slug": { "type": "string", "required": true },
+        "category": { "type": "string", "required": true },
+        "price": { "type": "number", "required": true },
+        "originalPrice": { "type": "number", "required": true },
+        "stockStatus": { "type": "string", "required": true },
+        "rating": { "type": "number", "required": true },
+        "reviewCount": { "type": "number", "required": true },
+        "images": { "type": "array", "required": true },
+        "description": { "type": "string", "required": true },
+        "urduDescription": { "type": "string", "required": false },
+        "shortDescription": { "type": "string", "required": false },
+        "isFeatured": { "type": "boolean", "required": false },
+        "benefits": { "type": "array", "required": false },
+        "urduBenefits": { "type": "array", "required": false },
+        "howToUse": { "type": "array", "required": false },
+        "bundles": { "type": "array", "required": false }
+      }
+    },
+    "settings": {
+      "collection": "settings",
+      "description": "Store global configuration, announcements, and contact information",
+      "fields": {
+        "storeName": { "type": "string", "required": true },
+        "phone": { "type": "string", "required": true },
+        "whatsappNumber": { "type": "string", "required": true },
+        "email": { "type": "string", "required": true },
+        "deliveryFee": { "type": "number", "required": true },
+        "announcementText": { "type": "string", "required": true }
+      }
+    },
+    "reviews": {
+      "collection": "reviews",
+      "description": "Verified customer feedback and testimonials",
+      "fields": {
+        "author": { "type": "string", "required": true },
+        "rating": { "type": "number", "required": true },
+        "date": { "type": "string", "required": true },
+        "verified": { "type": "boolean", "required": true },
+        "comment": { "type": "string", "required": false }
+      }
+    }
+  }
+}

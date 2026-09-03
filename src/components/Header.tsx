@@ -55,7 +55,7 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             </div>
 
-            {/* Center Musfira Luxury Golden Lotus Logo */}
+            {/* Center Musfira Luxury Golden Lotus Logo in Rounded Circle */}
             <div className="flex items-center justify-center">
               <button
                 id="header-brand-logo-btn"
@@ -64,18 +64,27 @@ export const Header: React.FC<HeaderProps> = ({
                   setCurrentPage('home');
                   setIsMobileMenuOpen(false);
                 }}
-                className="group flex items-center space-x-3 cursor-pointer py-1"
+                className="group flex items-center space-x-2.5 cursor-pointer py-1"
               >
-                <img
-                  src={BrandAssets.logo}
-                  alt="Musfira Beauty Cream"
-                  className="h-14 md:h-16 w-auto object-contain transition-transform duration-300 group-hover:scale-105 drop-shadow-xs"
-                  referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    // Fallback to SVG if image fails
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
-                />
+                <div className="w-13 h-13 sm:w-14 sm:h-14 md:w-15 md:h-15 rounded-full overflow-hidden border-2 border-[#d4af37] shadow-gold-sm bg-gradient-to-br from-[#fffdfa] via-white to-[#fef8eb] p-1 flex items-center justify-center transition-all duration-300 group-hover:scale-105 group-hover:border-[#b8860b] group-hover:shadow-gold-md ring-2 ring-amber-200/50">
+                  <img
+                    src={BrandAssets.logoIcon || BrandAssets.logo}
+                    alt="Musfira Beauty Cream"
+                    className="w-full h-full object-cover rounded-full"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+                <div className="hidden sm:flex flex-col text-left">
+                  <span className="font-serif font-extrabold text-base md:text-lg text-amber-950 tracking-wider leading-none">
+                    MUSFIRA
+                  </span>
+                  <span className="text-[10px] md:text-[11px] font-bold tracking-widest text-[#b8860b] uppercase mt-0.5">
+                    Beauty Cream
+                  </span>
+                </div>
               </button>
             </div>
 
@@ -191,16 +200,23 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="relative w-80 max-w-[85vw] bg-white h-full shadow-2xl flex flex-col z-10 animate-slide-right border-r border-amber-100">
             {/* Drawer Header */}
             <div className="p-4 border-b border-amber-100 flex items-center justify-between bg-gradient-to-r from-amber-50/50 via-white to-amber-50/50">
-              <div className="flex items-center space-x-2">
-                <img
-                  src={BrandAssets.logoIcon || BrandAssets.logo}
-                  alt="Musfira"
-                  className="w-8 h-8 object-contain"
-                  referrerPolicy="no-referrer"
-                />
-                <span className="font-serif font-bold text-lg text-amber-950 tracking-wider">
-                  Musfira Skincare
-                </span>
+              <div className="flex items-center space-x-2.5">
+                <div className="w-10 h-10 rounded-full overflow-hidden border border-amber-300 shadow-gold-xs p-0.5 bg-white flex items-center justify-center">
+                  <img
+                    src={BrandAssets.logoIcon || BrandAssets.logo}
+                    alt="Musfira"
+                    className="w-full h-full object-cover rounded-full"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <div>
+                  <span className="font-serif font-bold text-base text-amber-950 tracking-wider block">
+                    Musfira Skincare
+                  </span>
+                  <span className="text-[10px] text-amber-700 font-semibold tracking-widest uppercase">
+                    Official Store
+                  </span>
+                </div>
               </div>
               <button
                 type="button"
@@ -294,19 +310,6 @@ export const Header: React.FC<HeaderProps> = ({
                 <span>Help & Contact</span>
                 {currentPage === 'contact' && <span className="w-2 h-2 rounded-full bg-[#b8860b]" />}
               </button>
-
-              <div className="pt-6 border-t border-amber-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCurrentPage('admin');
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className="w-full text-left text-xs font-semibold py-2 px-4 rounded-lg text-amber-800/70 hover:text-amber-950 hover:bg-amber-50 transition-colors cursor-pointer"
-                >
-                  ⚙️ Store Admin Portal
-                </button>
-              </div>
             </div>
 
             {/* Drawer Bottom Guarantee */}
