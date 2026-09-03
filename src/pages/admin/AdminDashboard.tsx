@@ -59,6 +59,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
     reviews,
     media,
     isLiveBackend,
+    refreshOrders,
     updateOrderStatus,
     deleteOrder,
     updateSettings,
@@ -74,6 +75,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
   const [activeTab, setActiveTab] = useState<
     'analytics' | 'orders' | 'products' | 'add_product' | 'reviews' | 'media' | 'settings' | 'security'
   >('analytics');
+
+  const [isRefreshingOrders, setIsRefreshingOrders] = useState(false);
+
+  const handleRefreshOrders = async () => {
+    setIsRefreshingOrders(true);
+    await refreshOrders();
+    setTimeout(() => setIsRefreshingOrders(false), 500);
+  };
 
   // Search & Filter state for Shopify-style Orders
   const [orderSearch, setOrderSearch] = useState('');
@@ -938,12 +947,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                   <h2 className="text-lg font-bold font-serif text-white">
                     Order Management ({filteredOrders.length})
                   </h2>
-                  <p className="text-xs text-slate-400">
-                    Live customer orders synced in real-time with Firebase Firestore
-                  </p>
+                  <div className="flex items-center space-x-2 mt-0.5">
+                    <span className="flex h-2 w-2 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <p className="text-xs text-slate-400">
+                      Live real-time synced with Firebase Firestore ({orders.length} total orders)
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex items-center space-x-2">
+                  <button
+                    onClick={handleRefreshOrders}
+                    disabled={isRefreshingOrders}
+                    className="px-3 py-1.5 bg-[#21262d] hover:bg-[#30363d] text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 flex items-center space-x-1.5 cursor-pointer active:scale-95 transition-all"
+                    title="Fetch latest live orders directly from Firestore"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isRefreshingOrders ? 'animate-spin' : ''}`} />
+                    <span>{isRefreshingOrders ? 'Syncing...' : 'Live Sync'}</span>
+                  </button>
+
                   <button
                     onClick={handleExportCSV}
                     className="px-3 py-1.5 bg-[#21262d] hover:bg-[#30363d] text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 flex items-center space-x-1.5 cursor-pointer"

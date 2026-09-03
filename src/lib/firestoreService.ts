@@ -15,6 +15,29 @@ import {
 import { db } from './firebase';
 import { Order, Product, StoreSettings, Review, MediaAsset, OrderStatus } from '../types';
 
+// Helper to recursively clean undefined values so Firestore doesn't throw unsupported field value errors
+export function cleanFirestoreData<T>(data: T): T {
+  if (data === undefined) {
+    return null as any;
+  }
+  if (data === null) {
+    return null as any;
+  }
+  if (Array.isArray(data)) {
+    return data.map((item) => cleanFirestoreData(item)) as any;
+  }
+  if (typeof data === 'object') {
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data as Record<string, any>)) {
+      if (value !== undefined) {
+        cleaned[key] = cleanFirestoreData(value);
+      }
+    }
+    return cleaned as any;
+  }
+  return data;
+}
+
 // Collection references
 const ORDERS_COL = 'orders';
 const PRODUCTS_COL = 'products';
@@ -25,23 +48,47 @@ const MEDIA_COL = 'media';
 // --- ORDERS ---
 export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
   try {
-    const q = query(collection(db, ORDERS_COL), orderBy('createdAt', 'desc'));
+    const colRef = collection(db, ORDERS_COL);
     return onSnapshot(
-      q,
+      colRef,
       (snapshot) => {
         const orders: Order[] = [];
         snapshot.forEach((docSnap) => {
           orders.push({ id: docSnap.id, ...(docSnap.data() as any) });
         });
+        orders.sort((a, b) => {
+          const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return tB - tA;
+        });
         callback(orders);
       },
       (error) => {
-        console.warn('Firestore subscribeToOrders error (using fallback):', error);
+        console.error('Firestore subscribeToOrders error:', error);
       }
     );
   } catch (err) {
-    console.warn('Error setting up orders listener:', err);
+    console.error('Error setting up orders listener:', err);
     return () => {};
+  }
+};
+
+export const fetchOrdersDirectly = async (): Promise<Order[]> => {
+  try {
+    const snap = await getDocs(collection(db, ORDERS_COL));
+    const orders: Order[] = [];
+    snap.forEach((docSnap) => {
+      orders.push({ id: docSnap.id, ...(docSnap.data() as any) });
+    });
+    orders.sort((a, b) => {
+      const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return tB - tA;
+    });
+    return orders;
+  } catch (err) {
+    console.error('Direct fetch orders error:', err);
+    return [];
   }
 };
 
@@ -60,13 +107,27 @@ export const createFirestoreOrder = async (
     status: 'pending',
     createdAt: nowIso,
     updatedAt: nowIso,
+    customerName: orderData.customerName || '',
+    phone: orderData.phone || '',
+    alternatePhone: orderData.alternatePhone || '',
+    province: orderData.province || 'Punjab',
+    city: orderData.city || '',
+    areaSector: orderData.areaSector || '',
+    address: orderData.address || '',
+    nearbyFamousPlace: orderData.nearbyFamousPlace || '',
+    notes: orderData.notes || '',
+    trackingNumber: '',
+    courierName: '',
   };
+
+  const payload = cleanFirestoreData(newOrder);
 
   try {
     const docRef = doc(db, ORDERS_COL, newOrder.id);
-    await setDoc(docRef, newOrder);
+    await setDoc(docRef, payload);
+    console.log('Order successfully saved to Firestore:', newOrder.id, newOrder.orderNumber);
   } catch (err) {
-    console.warn('Could not save to Firestore directly, saved locally:', err);
+    console.error('CRITICAL Firestore save error:', err);
   }
 
   return newOrder;
@@ -84,10 +145,10 @@ export const updateFirestoreOrderStatus = async (
       status,
       updatedAt: new Date().toISOString(),
     };
-    if (trackingNumber !== undefined) updatePayload.trackingNumber = trackingNumber;
-    if (courierName !== undefined) updatePayload.courierName = courierName;
+    if (trackingNumber !== undefined) updatePayload.trackingNumber = trackingNumber || '';
+    if (courierName !== undefined) updatePayload.courierName = courierName || '';
 
-    await updateDoc(docRef, updatePayload);
+    await updateDoc(docRef, cleanFirestoreData(updatePayload));
   } catch (err) {
     console.warn('Firestore update order error:', err);
   }

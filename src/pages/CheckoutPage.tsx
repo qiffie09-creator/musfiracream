@@ -13,8 +13,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderSuccess, setC
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
+  const [alternatePhone, setAlternatePhone] = useState('');
+  const [province, setProvince] = useState('Punjab (پنجاب)');
   const [city, setCity] = useState('');
+  const [areaSector, setAreaSector] = useState('');
+  const [address, setAddress] = useState('');
+  const [nearbyFamousPlace, setNearbyFamousPlace] = useState('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -50,16 +54,20 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderSuccess, setC
       const newOrder = await placeOrder({
         customerName: name.trim(),
         phone: phone.trim(),
-        address: address.trim(),
+        alternatePhone: alternatePhone.trim() || '',
+        province: province.trim() || 'Punjab',
         city: city.trim(),
-        notes: notes.trim() || undefined,
+        areaSector: areaSector.trim() || '',
+        address: address.trim(),
+        nearbyFamousPlace: nearbyFamousPlace.trim() || '',
+        notes: notes.trim() || '',
         items: cart.map((item) => ({
           productId: item.product.id,
           productName: item.product.name,
-          bundleName: item.bundle?.name,
+          bundleName: item.bundle?.name || 'Standard Pack',
           quantity: item.quantity,
           price: item.bundle ? item.bundle.price : item.product.price,
-          image: item.product.images?.[0],
+          image: item.product.images?.[0] || '',
         })),
         subtotal: cartTotal,
         deliveryCharges,
@@ -145,14 +153,51 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderSuccess, setC
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                City (شہر) *
+                Alternate Phone (دوسرا فون نمبر - اختیاری)
+              </label>
+              <div className="relative">
+                <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
+                <input
+                  type="tel"
+                  placeholder="03XXXXXXXXX (Optional)"
+                  value={alternatePhone}
+                  onChange={(e) => setAlternatePhone(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-amber-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Province / Region (صوبہ) *
+              </label>
+              <select
+                value={province}
+                onChange={(e) => setProvince(e.target.value)}
+                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-amber-500"
+              >
+                <option value="Punjab (پنجاب)">Punjab (پنجاب)</option>
+                <option value="Sindh (سندھ)">Sindh (سندھ)</option>
+                <option value="Khyber Pakhtunkhwa (خیبر پختونخوا)">Khyber Pakhtunkhwa (خیبر پختونخوا)</option>
+                <option value="Balochistan (بلوچستان)">Balochistan (بلوچستان)</option>
+                <option value="Islamabad Capital (اسلام آباد)">Islamabad Capital (اسلام آباد)</option>
+                <option value="Azad Kashmir (آزاد کشمیر)">Azad Kashmir (آزاد کشمیر)</option>
+                <option value="Gilgit-Baltistan (گلگت بلتستان)">Gilgit-Baltistan (گلگت بلتستان)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                City / Tehsil (شہر) *
               </label>
               <div className="relative">
                 <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Lahore / Karachi"
+                  placeholder="e.g. Lahore / Rawalpindi / Karachi"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                   className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-amber-500"
@@ -161,14 +206,42 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderSuccess, setC
             </div>
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Town / Area / Sector (ٹاؤن، سیکٹر، محلہ)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Gulberg III, DHA Phase 5, Model Town"
+                value={areaSector}
+                onChange={(e) => setAreaSector(e.target.value)}
+                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-amber-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Nearby Famous Place / Landmark (قریبی مشہور جگہ یا مسجد)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Near Jamia Masjid / Bilal Chowk"
+                value={nearbyFamousPlace}
+                onChange={(e) => setNearbyFamousPlace(e.target.value)}
+                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-amber-500"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              Complete Delivery Address (مکمل پتہ) *
+              Complete Delivery Address (مکمل پتہ: مکان، گلی نمبر) *
             </label>
             <textarea
               required
-              rows={3}
-              placeholder="House Number, Street Name, Sector/Colony, City"
+              rows={2}
+              placeholder="House #, Street #, Block/Mohalla"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-amber-500 resize-none"

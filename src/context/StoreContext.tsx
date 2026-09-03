@@ -1,11 +1,15 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Product, ProductBundle, Order, StoreSettings, Review, MediaAsset, OrderStatus } from '../types';
 import { BrandAssets } from '../assets/images';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import {
   subscribeToOrders,
   createFirestoreOrder,
   updateFirestoreOrderStatus,
   deleteFirestoreOrder,
+  fetchOrdersDirectly,
+  cleanFirestoreData,
   subscribeToProducts,
   saveFirestoreProduct,
   deleteFirestoreProduct,
@@ -43,6 +47,7 @@ interface StoreContextType {
   openQuickOrder: (product: Product, bundle?: ProductBundle) => void;
   closeQuickOrder: () => void;
   placeOrder: (orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt' | 'status'>) => Promise<Order>;
+  refreshOrders: () => Promise<void>;
   updateOrderStatus: (orderId: string, status: OrderStatus, trackingNumber?: string, courierName?: string) => void;
   deleteOrder: (orderId: string) => void;
   updateSettings: (newSettings: Partial<StoreSettings>) => void;
@@ -462,7 +467,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Live Orders Listener
     const unsubOrders = subscribeToOrders((liveOrders) => {
-      setOrders(liveOrders);
+      setOrders((prev) => {
+        // If there are any local orders from this browser that haven't synced yet, push them to Firestore
+        const liveIds = new Set(liveOrders.map((o) => o.id));
+        const unsynced = prev.filter((o) => !liveIds.has(o.id));
+        if (unsynced.length > 0) {
+          unsynced.forEach(async (unsyncedOrder) => {
+            try {
+              const docRef = doc(db, 'orders', unsyncedOrder.id);
+              await setDoc(docRef, cleanFirestoreData(unsyncedOrder));
+              console.log('Automatically synced pending order to Firestore:', unsyncedOrder.id);
+            } catch (e) {
+              console.warn('Failed to sync pending order to Firestore:', unsyncedOrder.id, e);
+            }
+          });
+          return [...liveOrders, ...unsynced];
+        }
+        return liveOrders;
+      });
       setIsLiveBackend(true);
     });
 
@@ -585,6 +607,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setQuickOrderBundle(null);
   };
 
+  const refreshOrders = async () => {
+    try {
+      const freshOrders = await fetchOrdersDirectly();
+      if (freshOrders && freshOrders.length > 0) {
+        setOrders(freshOrders);
+      }
+    } catch (e) {
+      console.warn('Error refreshing orders:', e);
+    }
+  };
+
   // Place Order - saved to live Firestore & state
   const placeOrder = async (
     orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt' | 'status'>
@@ -701,6 +734,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         openQuickOrder,
         closeQuickOrder,
         placeOrder,
+        refreshOrders,
         updateOrderStatus,
         deleteOrder,
         updateSettings,
