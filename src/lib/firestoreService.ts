@@ -45,6 +45,63 @@ const SETTINGS_COL = 'settings';
 const REVIEWS_COL = 'reviews';
 const MEDIA_COL = 'media';
 
+// Helper to normalize orders from Firestore (handles both new and legacy formats safely)
+export const normalizeOrder = (id: string, rawData: any): Order => {
+  const data = rawData || {};
+  const orderNumber = data.orderNumber || (id.startsWith('MSF-') ? id : `MSF-${id.slice(-4)}`);
+  const customerName = data.customerName || data.name || 'Valued Customer';
+  const phone = data.phone || '';
+  const alternatePhone = data.alternatePhone || '';
+  const province = data.province || 'Punjab';
+  const city = data.city || 'Pakistan';
+  const areaSector = data.areaSector || '';
+  const address = data.address || '';
+  const nearbyFamousPlace = data.nearbyFamousPlace || '';
+  const notes = data.notes || '';
+  const trackingNumber = data.trackingNumber || '';
+  const courierName = data.courierName || '';
+  const subtotal = Number(data.subtotal || data.total || 1499);
+  const deliveryCharges = Number(data.deliveryCharges || 0);
+  const total = Number(data.total || subtotal + deliveryCharges || 1499);
+  const paymentMethod = data.paymentMethod || 'cod';
+  const status = (data.status as OrderStatus) || 'pending';
+  const createdAt = data.createdAt || data.date || new Date().toISOString();
+  const updatedAt = data.updatedAt || createdAt || new Date().toISOString();
+  const items = Array.isArray(data.items) && data.items.length > 0 ? data.items : [
+    {
+      productId: 'p1',
+      productName: 'Musfira Beauty Cream',
+      bundleName: '1 Pack Deal',
+      quantity: 1,
+      price: total,
+    }
+  ];
+
+  return {
+    id,
+    orderNumber,
+    customerName,
+    phone,
+    alternatePhone,
+    province,
+    city,
+    areaSector,
+    address,
+    nearbyFamousPlace,
+    notes,
+    items,
+    subtotal,
+    deliveryCharges,
+    total,
+    paymentMethod,
+    status,
+    trackingNumber,
+    courierName,
+    createdAt,
+    updatedAt,
+  };
+};
+
 // --- ORDERS ---
 export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
   try {
@@ -54,7 +111,7 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
       (snapshot) => {
         const orders: Order[] = [];
         snapshot.forEach((docSnap) => {
-          orders.push({ id: docSnap.id, ...(docSnap.data() as any) });
+          orders.push(normalizeOrder(docSnap.id, docSnap.data()));
         });
         orders.sort((a, b) => {
           const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -78,7 +135,7 @@ export const fetchOrdersDirectly = async (): Promise<Order[]> => {
     const snap = await getDocs(collection(db, ORDERS_COL));
     const orders: Order[] = [];
     snap.forEach((docSnap) => {
-      orders.push({ id: docSnap.id, ...(docSnap.data() as any) });
+      orders.push(normalizeOrder(docSnap.id, docSnap.data()));
     });
     orders.sort((a, b) => {
       const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
