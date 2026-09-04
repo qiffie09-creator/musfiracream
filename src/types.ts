@@ -102,6 +102,7 @@ export interface StoreSettings {
   guaranteeDays: number;
   codAvailable: boolean;
   showUrdu: boolean;
+  featuredProductId?: string;
 }
 
 export interface MediaAsset {

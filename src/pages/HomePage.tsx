@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Search, Share2, ShoppingBag, Sparkles, ShieldCheck } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { UrduBenefitsSection } from '../components/UrduBenefitsSection';
@@ -12,18 +12,91 @@ interface HomePageProps {
 }
 
 export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentPage }) => {
-  const { products, openQuickOrder } = useStore();
+  const { products, settings, openQuickOrder } = useStore();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // Main product is Musfira Beauty Cream
+  // Main product: dynamic based on Admin's selection (settings.featuredProductId or isFeatured)
   const mainProduct =
-    products.find(
-      (p) => p.id === 'prod_musfira_cream' || p.id === 'prod_wiki_cream' || p.slug?.includes('musfira')
-    ) || products[0];
+    (settings?.featuredProductId ? products.find((p) => p.id === settings.featuredProductId) : null) ||
+    products.find((p) => p.isFeatured) ||
+    products.find((p) => p.id === 'prod_musfira_cream') ||
+    products[0];
 
-  const [selectedBundle, setSelectedBundle] = useState<ProductBundle | undefined>(
-    mainProduct?.bundles?.find((b) => b.isDefault) || mainProduct?.bundles?.[1] || mainProduct?.bundles?.[0]
-  );
+  // Guaranteed 3 discount package bars for ANY active main product
+  const bundles: ProductBundle[] = useMemo(() => {
+    if (!mainProduct) return [];
+
+    if (mainProduct.bundles && mainProduct.bundles.length >= 3) {
+      return mainProduct.bundles;
+    }
+
+    const basePrice = Number(mainProduct.price) || 1499;
+    const baseOrig = Number(mainProduct.originalPrice) && Number(mainProduct.originalPrice) > basePrice
+      ? Number(mainProduct.originalPrice)
+      : Math.round(basePrice * 1.35);
+
+    // Deal 1: 1 Pack
+    const b1Price = basePrice;
+    const b1Orig = baseOrig;
+
+    // Deal 2: 2 Packs (Most Popular Deal - Save Rs. 500 or 15-20%)
+    const discount2 = basePrice >= 1000 ? 500 : Math.round(basePrice * 0.2);
+    const b2Price = basePrice * 2 - discount2;
+    const b2Orig = baseOrig * 2;
+
+    // Deal 3: 3 Packs (Mega Saver Deal - Save Rs. 1000 or 25-30%)
+    const discount3 = basePrice >= 1000 ? 1000 : Math.round(basePrice * 0.35);
+    const b3Price = basePrice * 3 - discount3;
+    const b3Orig = baseOrig * 3;
+
+    return [
+      {
+        id: `${mainProduct.id}_bundle_1`,
+        name: '1 Pack (Single Item)',
+        urduName: '1 پیک (سنگل جار)',
+        quantity: 1,
+        price: b1Price,
+        originalPrice: b1Orig,
+        discountPercentage: Math.max(0, Math.round(((b1Orig - b1Price) / b1Orig) * 100)),
+        badge: 'Starter Deal',
+        isDefault: false,
+      },
+      {
+        id: `${mainProduct.id}_bundle_2`,
+        name: '2 Packs (Deal - Most Popular)',
+        urduName: '2 پیکس (موسٹ پاپولر ڈیل)',
+        quantity: 2,
+        price: b2Price,
+        originalPrice: b2Orig,
+        discountPercentage: Math.round(((b2Orig - b2Price) / b2Orig) * 100),
+        badge: '★ Most Popular Deal',
+        isDefault: true,
+      },
+      {
+        id: `${mainProduct.id}_bundle_3`,
+        name: '3 Packs (Mega Saver Deal)',
+        urduName: '3 پیکس (مکمل کورس - بڑی بچت)',
+        quantity: 3,
+        price: b3Price,
+        originalPrice: b3Orig,
+        discountPercentage: Math.round(((b3Orig - b3Price) / b3Orig) * 100),
+        badge: `Save Rs. ${(b3Orig - b3Price).toLocaleString()}`,
+        isDefault: false,
+      },
+    ];
+  }, [mainProduct]);
+
+  const [selectedBundle, setSelectedBundle] = useState<ProductBundle | undefined>(() => {
+    return bundles.find((b) => b.isDefault) || bundles[1] || bundles[0];
+  });
+
+  // When mainProduct changes, reset current image index and choose the default bundle
+  useEffect(() => {
+    setCurrentImageIndex(0);
+    if (bundles && bundles.length > 0) {
+      setSelectedBundle(bundles.find((b) => b.isDefault) || bundles[1] || bundles[0]);
+    }
+  }, [mainProduct?.id, bundles]);
 
   const images = mainProduct?.images && mainProduct.images.length > 0 ? mainProduct.images : [];
 
@@ -44,10 +117,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentP
   };
 
   const handleShare = () => {
+    if (!mainProduct) return;
     if (navigator.share) {
       navigator.share({
-        title: 'Musfira Beauty Cream',
-        text: 'Musfira Beauty Cream - 100% Herbal & Steroid-Free Formula with Cash on Delivery in Pakistan',
+        title: mainProduct.name,
+        text: `${mainProduct.name} - 100% Original with Cash on Delivery in Pakistan`,
         url: window.location.href,
       }).catch(() => {});
     } else {
@@ -55,6 +129,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentP
       alert('Link copied to clipboard!');
     }
   };
+
+  if (!mainProduct) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 text-center">
+        <p className="text-amber-950 font-bold">Loading product details...</p>
+      </div>
+    );
+  }
 
   const currentPrice = selectedBundle ? selectedBundle.price : mainProduct.price;
 
@@ -158,64 +240,84 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentP
           </div>
         </div>
 
-        {/* Package Deal Radio Cards in Gold & White */}
-        {mainProduct.bundles && mainProduct.bundles.length > 0 && (
+        {/* 3 Package Deal Discount Bars */}
+        {bundles && bundles.length > 0 && (
           <div className="space-y-3 pt-2">
-            {mainProduct.bundles.map((bundle) => {
+            <div className="flex items-center justify-between px-1">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-amber-950 flex items-center space-x-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-[#b8860b]" />
+                <span>Select Package Deal (ڈیل منتخب کریں)</span>
+              </span>
+              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                Free Delivery Included
+              </span>
+            </div>
+
+            {bundles.map((bundle) => {
               const isSelected = selectedBundle?.id === bundle.id;
+              const savingsAmount =
+                bundle.originalPrice > bundle.price ? bundle.originalPrice - bundle.price : 0;
 
               return (
                 <div
                   key={bundle.id}
                   onClick={() => setSelectedBundle(bundle)}
-                  className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${
+                  className={`relative p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${
                     isSelected
-                      ? 'border-[#b8860b] bg-gradient-to-r from-[#fffdfa] to-[#fef8eb] shadow-gold-sm'
-                      : 'border-amber-100/90 bg-white hover:border-amber-300'
+                      ? 'border-[#b8860b] bg-gradient-to-r from-[#fffdfa] to-[#fef8eb] shadow-gold-sm ring-1 ring-amber-400/40'
+                      : 'border-amber-200/70 bg-white hover:border-amber-300'
                   }`}
                 >
                   {/* Badge top-right */}
-                  {bundle.badge === 'Most Popular' && (
-                    <span className="absolute -top-2.5 right-4 bg-gradient-to-r from-[#996515] to-[#b8860b] text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-xs">
-                      ★ Most Popular Deal
+                  {bundle.badge && (
+                    <span
+                      className={`absolute -top-2.5 right-4 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-xs ${
+                        bundle.badge.includes('Popular')
+                          ? 'bg-gradient-to-r from-[#996515] via-[#d4af37] to-[#b8860b]'
+                          : 'bg-emerald-600'
+                      }`}
+                    >
+                      {bundle.badge}
                     </span>
                   )}
 
                   {/* Left: Radio & Name */}
                   <div className="flex items-center space-x-3">
                     <div
-                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                        isSelected ? 'border-[#b8860b]' : 'border-amber-200'
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                        isSelected ? 'border-[#b8860b] bg-white' : 'border-amber-300 bg-amber-50/50'
                       }`}
                     >
-                      {isSelected && <div className="w-2 h-2 rounded-full bg-[#b8860b]" />}
+                      {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-[#b8860b]" />}
                     </div>
 
                     <div className="space-y-0.5">
-                      <span className="text-sm font-bold text-amber-950 block">
-                        {bundle.name}
-                      </span>
-                      {bundle.badge && bundle.badge !== 'Most Popular' && (
-                        <span className="inline-block bg-amber-100 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-200/60">
-                          {bundle.badge}
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-bold text-amber-950 block">
+                          {bundle.name}
                         </span>
-                      )}
-                      {bundle.id === 'bundle_2' && (
-                        <span className="inline-block bg-amber-100 text-[#996515] text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-200/60">
-                          Save Rs. 500
+                        {savingsAmount > 0 && (
+                          <span className="inline-block bg-amber-100 text-[#996515] text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-amber-200/80">
+                            Save Rs. {savingsAmount.toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                      {bundle.urduName && (
+                        <span className="text-xs text-amber-800 font-urdu font-medium block">
+                          {bundle.urduName}
                         </span>
                       )}
                     </div>
                   </div>
 
                   {/* Right: Price */}
-                  <div className="text-right">
-                    <span className="text-sm sm:text-base font-bold text-amber-950 block">
-                      Rs.{bundle.price.toLocaleString()}.00 PKR
+                  <div className="text-right shrink-0">
+                    <span className="text-sm sm:text-base font-black text-amber-950 block">
+                      Rs.{bundle.price.toLocaleString()}.00
                     </span>
                     {bundle.originalPrice > bundle.price && (
-                      <span className="text-xs text-slate-400 line-through">
-                        Rs.{bundle.originalPrice.toLocaleString()}.00 PKR
+                      <span className="text-xs text-slate-400 line-through block">
+                        Rs.{bundle.originalPrice.toLocaleString()}.00
                       </span>
                     )}
                   </div>
@@ -255,7 +357,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentP
             className="inline-flex items-center space-x-2 text-xs font-semibold text-amber-900 hover:text-[#b8860b] transition-colors cursor-pointer py-1"
           >
             <Share2 className="w-4 h-4 text-amber-700" />
-            <span>Share Musfira Beauty Cream</span>
+            <span>Share {mainProduct.name}</span>
           </button>
         </div>
       </div>
@@ -276,21 +378,21 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectProduct, setCurrentP
         <div className="p-5 rounded-3xl bg-gradient-to-b from-[#fffdf9] to-[#fef8eb] border-2 border-amber-300 shadow-gold-sm space-y-3.5 text-center">
           <div className="flex items-center justify-center space-x-2 text-[#b8860b] text-xs font-bold uppercase tracking-wider">
             <Sparkles className="w-4 h-4" />
-            <span>Official Musfira Guarantee</span>
+            <span>Official Guarantee</span>
             <Sparkles className="w-4 h-4" />
           </div>
 
           <h3 className="font-serif font-bold text-lg sm:text-xl text-amber-950">
-            Get 100% Original Musfira Beauty Cream
+            Get 100% Original {mainProduct.name}
           </h3>
 
           <p className="font-urdu text-sm text-amber-900 font-semibold">
-            صرف 7 دنوں میں داغ، دھبے اور جھائیاں ختم کریں۔ پورے پاکستان میں مفت ڈلیوری!
+            {mainProduct.urduDescription || 'صرف 7 دنوں میں داغ، دھبے اور جھائیاں ختم کریں۔ پورے پاکستان میں مفت ڈلیوری!'}
           </p>
 
           <div className="flex items-center justify-center space-x-3 text-sm">
             <span className="text-slate-400 line-through">
-              Rs. {mainProduct ? (mainProduct.originalPrice || 2200).toLocaleString() : '2,200'}
+              Rs. {((selectedBundle?.originalPrice || mainProduct.originalPrice || currentPrice * 1.3)).toLocaleString()}
             </span>
             <span className="text-xl sm:text-2xl font-black text-[#b8860b]">
               Rs. {currentPrice.toLocaleString()}.00 PKR

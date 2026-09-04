@@ -246,7 +246,7 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
 
 export const saveFirestoreProduct = async (product: Product) => {
   try {
-    await setDoc(doc(db, PRODUCTS_COL, product.id), product, { merge: true });
+    await setDoc(doc(db, PRODUCTS_COL, product.id), cleanFirestoreData(product), { merge: true });
   } catch (err) {
     console.warn('Firestore save product error:', err);
   }
@@ -266,7 +266,7 @@ export const seedInitialProductsIfEmpty = async (initialProducts: Product[]) => 
     const snapshot = await getDocs(collection(db, PRODUCTS_COL));
     if (snapshot.empty) {
       for (const p of initialProducts) {
-        await setDoc(doc(db, PRODUCTS_COL, p.id), p);
+        await setDoc(doc(db, PRODUCTS_COL, p.id), cleanFirestoreData(p));
       }
     }
   } catch (err) {
@@ -296,7 +296,7 @@ export const subscribeToSettings = (callback: (settings: StoreSettings) => void)
 
 export const saveFirestoreSettings = async (settings: StoreSettings) => {
   try {
-    await setDoc(doc(db, SETTINGS_COL, 'general'), settings, { merge: true });
+    await setDoc(doc(db, SETTINGS_COL, 'general'), cleanFirestoreData(settings), { merge: true });
   } catch (err) {
     console.warn('Firestore save settings error:', err);
   }

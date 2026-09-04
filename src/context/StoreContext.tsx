@@ -54,6 +54,7 @@ interface StoreContextType {
   updateProduct: (updatedProduct: Product) => void;
   addProduct: (newProduct: Omit<Product, 'id'>) => void;
   deleteProduct: (id: string) => void;
+  setMainProduct: (productId: string) => Promise<void>;
   addReview: (review: Omit<Review, 'id' | 'date' | 'verified'>) => void;
   deleteReview: (id: string) => void;
   addMedia: (asset: Omit<MediaAsset, 'id' | 'uploadedAt'>) => void;
@@ -683,6 +684,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     await deleteFirestoreProduct(id);
   };
 
+  const setMainProduct = async (productId: string) => {
+    // 1. Update settings with featuredProductId
+    const merged = { ...settings, featuredProductId: productId };
+    setSettings(merged);
+    await saveFirestoreSettings(merged);
+
+    // 2. Set isFeatured: true for this product and false for all others
+    const updated = products.map((p) => ({
+      ...p,
+      isFeatured: p.id === productId,
+    }));
+    setProducts(updated);
+
+    // 3. Save each updated product state to Firestore
+    for (const p of updated) {
+      if (p.id === productId || p.isFeatured) {
+        await saveFirestoreProduct(p);
+      }
+    }
+  };
+
   const addReview = async (review: Omit<Review, 'id' | 'date' | 'verified'>) => {
     const newRev: Review = {
       ...review,
@@ -741,6 +763,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updateProduct,
         addProduct,
         deleteProduct,
+        setMainProduct,
         addReview,
         deleteReview,
         addMedia,

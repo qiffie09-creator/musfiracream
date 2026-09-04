@@ -64,6 +64,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
     deleteOrder,
     updateSettings,
     deleteProduct,
+    setMainProduct,
     addProduct,
     updateProduct,
     addReview,
@@ -132,6 +133,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
   const [bundle1Price, setBundle1Price] = useState('1499');
   const [bundle2Price, setBundle2Price] = useState('2499');
   const [bundle3Price, setBundle3Price] = useState('3499');
+  const [editIsFeatured, setEditIsFeatured] = useState(false);
+  const [pIsFeatured, setPIsFeatured] = useState(false);
+  const [mainProductNotice, setMainProductNotice] = useState('');
   const [editProductSavedMsg, setEditProductSavedMsg] = useState('');
 
   // Add Review Modal State
@@ -216,6 +220,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
       shortDescription: pShortDesc.trim() || pName,
       benefits: ['100% Herbal Formula', 'Fast Guaranteed Results'],
       howToUse: ['Apply evenly at night before sleep.'],
+      isFeatured: pIsFeatured,
     });
 
     setPName('');
@@ -224,6 +229,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
     setPDesc('');
     setPUrduDesc('');
     setPImageUrl('');
+    setPIsFeatured(false);
     setProductSavedMsg('Product published to live store & Firebase catalog!');
     setTimeout(() => {
       setProductSavedMsg('');
@@ -247,6 +253,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
     setEditDesc(p.description || '');
     setEditUrduDesc(p.urduDescription || '');
     setEditImageUrl(p.images?.[0] || '');
+    setEditIsFeatured(Boolean(settings?.featuredProductId === p.id || (!settings?.featuredProductId && p.isFeatured)));
 
     // Initialize bundle pricing if available
     const b1 = p.bundles?.find((b) => b.id.includes('1')) || p.bundles?.[0];
@@ -349,14 +356,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
       urduDescription: editUrduDesc.trim(),
       images: editImageUrl.trim() ? [editImageUrl.trim()] : editingProduct.images,
       bundles: updatedBundles,
+      isFeatured: editIsFeatured,
     };
 
     updateProduct(updated);
+    if (editIsFeatured) {
+      setMainProduct(editingProduct.id);
+    }
     setEditProductSavedMsg('Product & pricing updated live on Firebase & Storefront!');
     setTimeout(() => {
       setEditProductSavedMsg('');
       setEditingProduct(null);
     }, 1500);
+  };
+
+  // Set any product as the Main Home Page Product
+  const handleSetAsMain = async (productId: string) => {
+    try {
+      await setMainProduct(productId);
+      const targetProd = products.find((p) => p.id === productId);
+      setMainProductNotice(
+        `"${targetProd?.name || 'Selected product'}" is now the Main Product on the Home Page! Previous product unseated.`
+      );
+      setTimeout(() => setMainProductNotice(''), 4500);
+    } catch (err) {
+      console.error('Failed to set main product:', err);
+    }
   };
 
   // Add Customer Review
@@ -1234,11 +1259,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 </button>
               </div>
 
+              {/* Main Product Selection Notice Banner */}
+              {mainProductNotice && (
+                <div className="p-4 bg-emerald-500/15 border border-emerald-500/40 rounded-2xl text-xs text-emerald-300 font-bold flex items-center justify-between animate-fade-in">
+                  <div className="flex items-center space-x-2">
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{mainProductNotice}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMainProductNotice('')}
+                    className="text-emerald-400 hover:text-white cursor-pointer ml-2"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
               {/* Highlighted Featured Homepage Product Card */}
               {(() => {
-                const homeProduct = products.find(
-                  (p) => p.id === 'prod_musfira_cream' || p.id === 'prod_wiki_cream' || p.slug === 'musfira-beauty-cream'
-                ) || products[0];
+                const homeProduct =
+                  (settings?.featuredProductId
+                    ? products.find((p) => p.id === settings.featuredProductId)
+                    : null) ||
+                  products.find((p) => p.isFeatured) ||
+                  products.find((p) => p.id === 'prod_musfira_cream') ||
+                  products[0];
 
                 if (!homeProduct) return null;
 
@@ -1280,6 +1326,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                             • Cash on Delivery Enabled
                           </span>
                         </div>
+
+                        {/* Quick Switch Dropdown */}
+                        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] text-slate-300 font-semibold">
+                            Switch Main Product:
+                          </span>
+                          <select
+                            value={homeProduct.id}
+                            onChange={(e) => handleSetAsMain(e.target.value)}
+                            className="bg-[#0d1117] border border-amber-500/50 rounded-xl px-2.5 py-1 text-[11px] text-amber-300 font-bold focus:outline-none focus:border-[#d4af37] cursor-pointer"
+                          >
+                            {products.map((prod) => (
+                              <option key={prod.id} value={prod.id} className="bg-[#161b22] text-white">
+                                {prod.name} (Rs. {prod.price.toLocaleString()}) {homeProduct.id === prod.id ? '★ Current Main' : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                     </div>
 
@@ -1296,61 +1360,102 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               })()}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {products.map((p) => (
-                  <div
-                    key={p.id}
-                    className="p-4 bg-[#0d1117] rounded-2xl border border-slate-800 flex items-center space-x-4 hover:border-slate-700 transition-colors"
-                  >
-                    <img
-                      src={p.images?.[0] || BrandAssets.musfiraCreamMain}
-                      alt={p.name}
-                      className="w-16 h-16 rounded-xl object-contain bg-white p-1 shrink-0 border border-slate-700"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-xs font-bold text-white line-clamp-1">{p.name}</h3>
-                      <p className="font-urdu text-[11px] text-[#d4af37] line-clamp-1">{p.urduName}</p>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <span className="text-xs font-black text-white">
-                          Rs. {p.price.toLocaleString()}
-                        </span>
-                        {p.originalPrice > p.price && (
-                          <span className="text-[10px] text-slate-500 line-through">
-                            Rs. {p.originalPrice.toLocaleString()}
+                {products.map((p) => {
+                  const currentMainId =
+                    settings?.featuredProductId ||
+                    products.find((prod) => prod.isFeatured)?.id ||
+                    'prod_musfira_cream';
+                  const isMain = p.id === currentMainId;
+
+                  return (
+                    <div
+                      key={p.id}
+                      className={`p-4 bg-[#0d1117] rounded-2xl border transition-colors flex flex-col justify-between space-y-3 ${
+                        isMain ? 'border-amber-500/70 shadow-gold-xs' : 'border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className="relative shrink-0">
+                          <img
+                            src={p.images?.[0] || BrandAssets.musfiraCreamMain}
+                            alt={p.name}
+                            className="w-16 h-16 rounded-xl object-contain bg-white p-1 border border-slate-700"
+                            referrerPolicy="no-referrer"
+                          />
+                          {isMain && (
+                            <span className="absolute -top-1.5 -right-1.5 bg-[#d4af37] text-slate-950 text-[8px] font-black px-1.5 py-0.5 rounded-full shadow-xs">
+                              MAIN
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-1.5">
+                            <h3 className="text-xs font-bold text-white line-clamp-1">{p.name}</h3>
+                          </div>
+                          <p className="font-urdu text-[11px] text-[#d4af37] line-clamp-1">{p.urduName}</p>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <span className="text-xs font-black text-white">
+                              Rs. {p.price.toLocaleString()}
+                            </span>
+                            {p.originalPrice > p.price && (
+                              <span className="text-[10px] text-slate-500 line-through">
+                                Rs. {p.originalPrice.toLocaleString()}
+                              </span>
+                            )}
+                            <span
+                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                                p.stockStatus === 'in_stock'
+                                  ? 'bg-emerald-500/10 text-emerald-400'
+                                  : 'bg-red-500/10 text-red-400'
+                              }`}
+                            >
+                              {p.stockStatus === 'in_stock' ? 'In Stock' : 'Out of Stock'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action buttons footer */}
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
+                        {isMain ? (
+                          <span className="px-2.5 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-xl text-[10px] font-extrabold flex items-center space-x-1 shadow-xs">
+                            <Star className="w-3 h-3 fill-amber-300 text-amber-300" />
+                            <span>Main Home Product (Active)</span>
                           </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleSetAsMain(p.id)}
+                            className="px-2.5 py-1 bg-gradient-to-r from-amber-600/20 to-amber-500/10 hover:bg-amber-500/25 text-amber-300 text-[10px] font-bold rounded-xl border border-amber-500/30 transition-all flex items-center space-x-1 cursor-pointer"
+                            title="Set as the Main Product on the Homepage"
+                          >
+                            <Star className="w-3 h-3" />
+                            <span>Set as Main Home Product</span>
+                          </button>
                         )}
-                        <span
-                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                            p.stockStatus === 'in_stock'
-                              ? 'bg-emerald-500/10 text-emerald-400'
-                              : 'bg-red-500/10 text-red-400'
-                          }`}
-                        >
-                          {p.stockStatus === 'in_stock' ? 'In Stock' : 'Out of Stock'}
-                        </span>
+
+                        <div className="flex items-center space-x-1.5">
+                          <button
+                            onClick={() => handleOpenEditProduct(p)}
+                            className="px-2.5 py-1 bg-[#21262d] hover:bg-[#30363d] text-amber-300 text-xs font-semibold rounded-xl border border-slate-700 transition-colors flex items-center space-x-1 cursor-pointer"
+                            title="Edit Product and Pricing"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                            <span>Edit</span>
+                          </button>
+
+                          <button
+                            onClick={() => deleteProduct(p.id)}
+                            className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer"
+                            title="Delete Product"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-
-                    <div className="flex items-center space-x-1.5">
-                      <button
-                        onClick={() => handleOpenEditProduct(p)}
-                        className="px-2.5 py-1.5 bg-[#21262d] hover:bg-[#30363d] text-amber-300 text-xs font-semibold rounded-xl border border-slate-700 transition-colors flex items-center space-x-1 cursor-pointer"
-                        title="Edit Product and Pricing"
-                      >
-                        <Edit className="w-3.5 h-3.5" />
-                        <span>Edit</span>
-                      </button>
-
-                      <button
-                        onClick={() => deleteProduct(p.id)}
-                        className="p-2 text-red-400 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer"
-                        title="Delete Product"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Edit Product & Pricing Modal */}
@@ -1580,6 +1685,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                             className="w-full p-2 bg-[#0d1117] border border-slate-700 rounded-xl text-slate-300 text-[11px] focus:outline-none focus:border-[#d4af37]"
                           />
                         </div>
+
+                        {/* Make Main Homepage Product Option */}
+                        <div className="p-3.5 bg-[#0d1117] rounded-2xl border border-amber-500/30 flex items-center justify-between">
+                          <div>
+                            <span className="text-xs font-bold text-amber-300 block flex items-center space-x-1.5">
+                              <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300" />
+                              <span>Set as Main Home Page Product (مین پروڈکٹ بنائیں)</span>
+                            </span>
+                            <p className="text-[10px] text-slate-400 mt-0.5">
+                              Check to feature this product as the primary hero item on the website.
+                            </p>
+                          </div>
+                          <input
+                            type="checkbox"
+                            id="edit-is-featured-checkbox"
+                            checked={editIsFeatured}
+                            onChange={(e) => setEditIsFeatured(e.target.checked)}
+                            className="w-5 h-5 rounded text-[#d4af37] accent-[#d4af37] cursor-pointer shrink-0"
+                          />
+                        </div>
                       </div>
 
                       <div className="pt-2 flex items-center justify-end space-x-2.5">
@@ -1702,6 +1827,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     value={pShortDesc}
                     onChange={(e) => setPShortDesc(e.target.value)}
                     className="w-full p-2.5 bg-[#0d1117] border border-slate-700 rounded-xl text-white focus:outline-none focus:border-[#d4af37]"
+                  />
+                </div>
+
+                {/* Make Main Homepage Product Option */}
+                <div className="p-3.5 bg-[#0d1117] rounded-2xl border border-amber-500/30 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-amber-300 block flex items-center space-x-1.5">
+                      <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300" />
+                      <span>Set as Main Home Page Product (مین پروڈکٹ بنائیں)</span>
+                    </span>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      Check to display this new product as the hero item on the website homepage immediately.
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    id="add-p-is-featured-checkbox"
+                    checked={pIsFeatured}
+                    onChange={(e) => setPIsFeatured(e.target.checked)}
+                    className="w-5 h-5 rounded text-[#d4af37] accent-[#d4af37] cursor-pointer shrink-0"
                   />
                 </div>
 
